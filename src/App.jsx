@@ -85,6 +85,7 @@ function Shell() {
     isAdmin: me.data?.role === "admin",
     instances: instances.data || [],
     reloadInstances: instances.reload,
+    reloadPending: pending.reload,
     go: (v) => { setView(v); setNavOpen(false); },
   };
   const Current = (VIEWS.find((v) => v.id === view) || VIEWS[0]).C;

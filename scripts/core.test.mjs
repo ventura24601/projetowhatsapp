@@ -208,3 +208,61 @@ test("migrations não usam DELETE/UPDATE sem WHERE (bloqueado no Supabase)", asy
     }
   }
 });
+
+test("casos: IA encerra, espera some, cliente reabre, manual e reprocessamento preservam", async () => {
+  const { db, send } = await setup();
+  const t = (min) => new Date(Date.now() - (120 - min) * 60e3).toISOString();
+  await send(zapi({ at: t(0), text: "Pode me mandar o relatório?" }));
+  let cands = await rpc(db, "ai_case_candidates", { p_limit: 10, p_days: 30 });
+  assert.equal(cands.length, 1);
+  assert.equal(cands[0].waiting, true);
+  const cid = cands[0].id;
+
+  // lote enviado agora; decisão de baixa confiança não encerra
+  await rpc(db, "ai_batch_create", { p_id: "b1", p_rosters: { [cid]: true }, p_kind: "casos" });
+  assert.equal((await rpc(db, "ai_case_candidates", { p_limit: 10, p_days: 30 })).length, 0);
+  assert.equal((await rpc(db, "ai_batch_open", { p_kind: "analise" })).length, 0);
+  const created = (await db.query(`select created_at from ai_batches where id = 'b1'`)).rows[0].created_at;
+  let r = await rpc(db, "ai_save_cases", { p_checked_at: created, p: [{ id: cid, model: "t", decision: {
+    status: "encerrado", closed_by: "equipe", next_step: "ninguem", confidence: "baixa", reason: "ambíguo", evidence: "" } }] });
+  assert.deepEqual(r, { checked: 1, closed: 0 });
+  await rpc(db, "ai_batch_close", { p_id: "b1", p_result: {} });
+
+  // nova mensagem do time + nova revisão com confiança alta encerra e limpa a espera
+  const f = (sec) => new Date(Date.now() + sec * 1000).toISOString();
+  await send(zapi({ at: f(10), from: "supervisor", text: "Segue o relatório" }));
+  await send(zapi({ at: f(20), text: "Agora sim, outra dúvida: e o vídeo?" }));
+  cands = await rpc(db, "ai_case_candidates", { p_limit: 10, p_days: 30 });
+  assert.equal(cands.length, 1);
+  r = await rpc(db, "ai_save_cases", { p_checked_at: f(30), p: [{ id: cid, model: "t", decision: {
+    status: "encerrado", closed_by: "cliente", next_step: "ninguem", confidence: "alta", reason: "Cliente confirmou", evidence: "ok" } }] });
+  assert.deepEqual(r, { checked: 1, closed: 1 });
+  let row = (await db.query(`select case_status, case_closed_by from conversations where id = $1`, [cid])).rows[0];
+  assert.equal(row.case_status, "encerrado");
+  assert.equal(row.case_closed_by, "cliente");
+  assert.equal((await rpc(db, "dash_pending", { p_instance: null })).length, 0);
+  let dash = await rpc(db, "dash_cases", { p_instance: null });
+  assert.equal(Number(dash.closed_today), 1);
+  assert.equal(dash.closed_list[0].closed_by, "cliente");
+
+  // reprocessar mantém encerrado e sem espera
+  const gid = (await db.query(`select id from groups`)).rows[0].id;
+  await rpc(db, "admin_rebuild_group", { p_group: gid });
+  row = (await db.query(`select id, case_status from conversations order by started_at desc limit 1`)).rows[0];
+  assert.equal(row.case_status, "encerrado");
+  assert.equal((await rpc(db, "dash_pending", { p_instance: null })).length, 0);
+
+  // "obrigado" não reabre; pergunta nova reabre
+  await send(zapi({ at: f(60), text: "obrigado" }));
+  assert.equal((await db.query(`select case_status from conversations where id = $1`, [row.id])).rows[0].case_status, "encerrado");
+  await send(zapi({ at: f(120), text: "E o vídeo novo?" }));
+  assert.equal((await db.query(`select case_status from conversations where id = $1`, [row.id])).rows[0].case_status, "aberto");
+
+  // manual: encerrar e reabrir
+  await rpc(db, "case_set", { p_conversation: row.id, p_status: "encerrado" });
+  dash = await rpc(db, "dash_cases", { p_instance: null });
+  assert.equal(dash.closed_list[0].closed_by, "manual");
+  assert.equal((await rpc(db, "dash_pending", { p_instance: null })).length, 0);
+  await rpc(db, "case_set", { p_conversation: row.id, p_status: "aberto" });
+  assert.equal((await rpc(db, "dash_cases", { p_instance: null })).open_list.length, 1);
+});

@@ -5,6 +5,7 @@ import { createLocalDb, asUser, rpc, DEMO_USER } from "./pg-local.mjs";
 import { seedDemo } from "./seed.mjs";
 import { handleZapiWebhook } from "../netlify/lib/webhook.mjs";
 import { collectAnalysisBatches, submitAnalysisBatch } from "../netlify/lib/analyze.mjs";
+import { submitCaseBatch } from "../netlify/lib/cases.mjs";
 
 const PORT = Number(process.env.API_PORT || 8787);
 const db = await createLocalDb();
@@ -48,6 +49,11 @@ http
       if (url.pathname === "/api/analyze-now" && req.method === "POST") {
         await collectAnalysisBatches(call);
         const r = await submitAnalysisBatch(call, { idleMinutes: 15 });
+        return send(res, r.ok ? 200 : 400, r);
+      }
+      if (url.pathname === "/api/cases-review-now" && req.method === "POST") {
+        await collectAnalysisBatches(call);
+        const r = await submitCaseBatch(call);
         return send(res, r.ok ? 200 : 400, r);
       }
       send(res, 404, { message: "not found" });

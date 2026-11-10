@@ -1,4 +1,4 @@
-// A cada 20 min confere se o lote enviado terminou e salva as análises. Não chama o modelo.
+// A cada 5 min confere se o lote enviado terminou e salva as análises. Não chama o modelo.
 import { collectAnalysisBatches } from "../lib/analyze.mjs";
 import { adminRpc } from "../lib/supabase.mjs";
 
@@ -8,4 +8,4 @@ export default async () => {
   return Response.json(result);
 };
 
-export const config = { schedule: "*/20 * * * *" };
+export const config = { schedule: "*/5 * * * *" };

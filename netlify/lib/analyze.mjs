@@ -1,5 +1,6 @@
 // Análise de atendimentos com Claude: categoria, sentimento, resolução, qualidade do time, FAQ.
 import Anthropic from "@anthropic-ai/sdk";
+import { parseCaseDecision } from "./cases.mjs";
 
 export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5-5";
 
@@ -126,7 +127,7 @@ const noKey = () => !process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUT
 // Roda às 11h e às 16h (e pelo botão do painel). Não envia se já houver lote em andamento.
 export async function submitAnalysisBatch(rpc, { limit = 1000, idleMinutes = 60, model = DEFAULT_MODEL } = {}) {
   if (noKey()) return { ok: false, error: "ANTHROPIC_API_KEY não configurada" };
-  const open = (await rpc("ai_batch_open")) ?? [];
+  const open = (await rpc("ai_batch_open", { p_kind: "analise" })) ?? [];
   if (open.length) return { ok: true, submitted: 0, skipped: "já existe um lote em andamento", batch: open[0].id };
 
   const pending = await rpc("ai_pending_conversations", { p_limit: limit, p_idle_minutes: idleMinutes });
@@ -142,35 +143,46 @@ export async function submitAnalysisBatch(rpc, { limit = 1000, idleMinutes = 60,
     return { custom_id: conv.id, params };
   });
   const batch = await new Anthropic().messages.batches.create({ requests });
-  await rpc("ai_batch_create", { p_id: batch.id, p_rosters: rosters });
+  await rpc("ai_batch_create", { p_id: batch.id, p_rosters: rosters, p_kind: "analise" });
   return { ok: true, submitted: requests.length, batch: batch.id };
 }
 
-// Confere os lotes abertos; quando um termina, salva as análises. Não chama o modelo.
+// Confere os lotes abertos (análise e casos); quando um termina, salva o resultado. Não chama o modelo.
 export async function collectAnalysisBatches(rpc) {
   if (noKey()) return { ok: false, error: "ANTHROPIC_API_KEY não configurada" };
-  const open = (await rpc("ai_batch_open")) ?? [];
+  const open = (await rpc("ai_batch_open", {})) ?? [];
+  if (!open.length) return { ok: true, batches: [] };
   const client = new Anthropic();
   const out = [];
   for (const b of open) {
     const info = await client.messages.batches.retrieve(b.id);
     if (info.processing_status !== "ended") {
-      out.push({ batch: b.id, status: info.processing_status });
+      out.push({ batch: b.id, kind: b.kind, status: info.processing_status });
       continue;
     }
+    const isCase = b.kind === "casos";
     let saved = 0;
+    let closed = 0;
     const errors = [];
     let chunk = [];
     const flush = async () => {
       if (!chunk.length) return;
-      saved += await rpc("ai_save_analyses", { p: chunk });
+      if (isCase) {
+        const r = await rpc("ai_save_cases", { p: chunk, p_checked_at: b.created_at });
+        saved += r.checked;
+        closed += r.closed;
+      } else {
+        saved += await rpc("ai_save_analyses", { p: chunk });
+      }
       chunk = [];
     };
     for await (const r of await client.messages.batches.results(b.id)) {
       try {
         if (r.result.type !== "succeeded") throw new Error(r.result.type === "errored" ? r.result.error?.error?.message || "erro" : r.result.type);
         const msg = r.result.message;
-        chunk.push({ id: r.custom_id, analysis: parseAnalysis(msg, b.rosters?.[r.custom_id] ?? []), model: msg.model });
+        chunk.push(isCase
+          ? { id: r.custom_id, decision: parseCaseDecision(msg), model: msg.model }
+          : { id: r.custom_id, analysis: parseAnalysis(msg, b.rosters?.[r.custom_id] ?? []), model: msg.model });
         if (chunk.length >= 200) await flush();
       } catch (e) {
         if (errors.length < 20) errors.push(`${r.custom_id}: ${e.message}`);
@@ -178,8 +190,9 @@ export async function collectAnalysisBatches(rpc) {
     }
     await flush();
     const result = { saved, failed: info.request_counts.errored + info.request_counts.expired + info.request_counts.canceled, errors };
+    if (isCase) result.closed = closed;
     await rpc("ai_batch_close", { p_id: b.id, p_result: result });
-    out.push({ batch: b.id, status: "ended", ...result });
+    out.push({ batch: b.id, kind: b.kind, status: "ended", ...result });
   }
   return { ok: true, batches: out };
 }

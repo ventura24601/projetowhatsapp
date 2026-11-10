@@ -22,17 +22,20 @@ export async function rpc(fn, args = {}) {
   return data;
 }
 
-export async function analyzeNow() {
+async function postAdmin(path, fallbackError) {
   const headers = { "content-type": "application/json" };
   if (!DEMO) {
     const { data } = await supabase.auth.getSession();
     headers.authorization = `Bearer ${data.session?.access_token}`;
   }
-  const r = await fetch("/api/analyze-now", { method: "POST", headers });
+  const r = await fetch(path, { method: "POST", headers });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok || data.ok === false) throw new Error(data.error || data.message || "Falha ao analisar");
+  if (!r.ok || data.ok === false) throw new Error(data.error || data.message || fallbackError);
   return data;
 }
+
+export const analyzeNow = () => postAdmin("/api/analyze-now", "Falha ao analisar");
+export const reviewCasesNow = () => postAdmin("/api/cases-review-now", "Falha ao revisar casos");
 
 export function webhookUrl(inst) {
   const base = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
