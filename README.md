@@ -74,7 +74,7 @@ O pedido usa fallback automático do servidor caso o modelo recuse uma conversa.
 ## Estrutura
 ```
 supabase/migrations/   schema, ingestão Z-API, cálculo de SLA, RPCs do painel, permissões
-netlify/functions/     zapi-webhook, analyze-scheduled (análise 11h e 16h), cases-scheduled (casos 9h, 13h, 17h), analyze-collect (resultados a cada 5 min), analyze-now, cases-now
+netlify/functions/     zapi-webhook, analyze-scheduled (análise 11h e 16h), cases-scheduled (casos 9h, 13h, 17h), analyze-collect (resultados a cada 5 min), analyze-now, cases-now, report-scheduled (relatório 11h e 15h → n8n)
 netlify/lib/           webhook, análise com Claude, cliente Supabase
 src/                   painel React
 scripts/               PGlite local, dados simulados, testes
