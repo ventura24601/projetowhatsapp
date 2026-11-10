@@ -85,7 +85,7 @@ export function buildTranscript(conv) {
   return { transcript: lines.join("\n"), roster };
 }
 
-export async function analyzeConversation(client, conv, categories, model = DEFAULT_MODEL) {
+function buildParams(conv, categories, model) {
   const { transcript, roster } = buildTranscript(conv);
   const user = `Produto/número monitorado: ${conv.instance_name}
 Grupo: ${conv.group_name}
@@ -94,56 +94,92 @@ Integrantes do time nesta conversa: ${roster.map((r) => `[${r.code}] ${r.name}`)
 
 Transcrição:
 ${transcript}`;
+  return {
+    roster,
+    params: {
+      model,
+      max_tokens: 4000,
+      output_config: { effort: "low", format: { type: "json_schema", schema: schema(categories) } },
+      system: SYSTEM,
+      messages: [{ role: "user", content: user }],
+    },
+  };
+}
 
-  const response = await client.beta.messages.create({
-    model,
-    max_tokens: 4000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    output_config: { effort: "low", format: { type: "json_schema", schema: schema(categories) } },
-    system: SYSTEM,
-    messages: [{ role: "user", content: user }],
-  });
-
-  if (response.stop_reason === "refusal") throw new Error("Análise recusada pelo modelo");
-  const text = response.content.find((b) => b.type === "text")?.text;
-  if (!text) throw new Error(`Resposta sem texto (stop_reason=${response.stop_reason})`);
+// Converte a resposta do modelo na análise salva (códigos A1/SUP1 → atendente).
+function parseAnalysis(message, roster) {
+  if (message.stop_reason === "refusal") throw new Error("Análise recusada pelo modelo");
+  const text = message.content.find((b) => b.type === "text")?.text;
+  if (!text) throw new Error(`Resposta sem texto (stop_reason=${message.stop_reason})`);
   const out = JSON.parse(text);
-
   out.team_feedback = (out.team_feedback || []).map((f) => {
     const r = roster.find((x) => x.code === f.code);
     return { ...f, attendant_id: r?.attendant_id ?? null, name: r?.name ?? f.code };
   });
   out.quality_score = Math.max(0, Math.min(10, Number(out.quality_score) || 0));
-  return { analysis: out, model: response.model };
+  return out;
 }
 
-// Busca atendimentos pendentes, analisa e salva. `rpc(fn, args)` vem do Supabase (service role).
-export async function runAnalysisBatch(rpc, { limit = 15, idleMinutes = 60, concurrency = 4 } = {}) {
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
-    return { ok: false, error: "ANTHROPIC_API_KEY não configurada" };
-  }
-  const client = new Anthropic();
+const noKey = () => !process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN;
+
+// Envia UM lote com todos os atendimentos encerrados ainda não analisados.
+// Roda às 11h e às 16h (e pelo botão do painel). Não envia se já houver lote em andamento.
+export async function submitAnalysisBatch(rpc, { limit = 1000, idleMinutes = 60, model = DEFAULT_MODEL } = {}) {
+  if (noKey()) return { ok: false, error: "ANTHROPIC_API_KEY não configurada" };
+  const open = (await rpc("ai_batch_open")) ?? [];
+  if (open.length) return { ok: true, submitted: 0, skipped: "já existe um lote em andamento", batch: open[0].id };
+
   const pending = await rpc("ai_pending_conversations", { p_limit: limit, p_idle_minutes: idleMinutes });
   const items = pending?.items ?? [];
-  const categories = pending?.categories?.length ? pending.categories : ["Outros"];
+  if (!items.length) return { ok: true, submitted: 0 };
+  const categories = pending?.categories?.length ? [...pending.categories] : ["Outros"];
   if (!categories.includes("Outros")) categories.push("Outros");
 
-  let done = 0;
-  const errors = [];
-  const queue = [...items];
-  async function worker() {
-    while (queue.length) {
-      const conv = queue.shift();
+  const rosters = {};
+  const requests = items.map((conv) => {
+    const { roster, params } = buildParams(conv, categories, model);
+    rosters[conv.id] = roster;
+    return { custom_id: conv.id, params };
+  });
+  const batch = await new Anthropic().messages.batches.create({ requests });
+  await rpc("ai_batch_create", { p_id: batch.id, p_rosters: rosters });
+  return { ok: true, submitted: requests.length, batch: batch.id };
+}
+
+// Confere os lotes abertos; quando um termina, salva as análises. Não chama o modelo.
+export async function collectAnalysisBatches(rpc) {
+  if (noKey()) return { ok: false, error: "ANTHROPIC_API_KEY não configurada" };
+  const open = (await rpc("ai_batch_open")) ?? [];
+  const client = new Anthropic();
+  const out = [];
+  for (const b of open) {
+    const info = await client.messages.batches.retrieve(b.id);
+    if (info.processing_status !== "ended") {
+      out.push({ batch: b.id, status: info.processing_status });
+      continue;
+    }
+    let saved = 0;
+    const errors = [];
+    let chunk = [];
+    const flush = async () => {
+      if (!chunk.length) return;
+      saved += await rpc("ai_save_analyses", { p: chunk });
+      chunk = [];
+    };
+    for await (const r of await client.messages.batches.results(b.id)) {
       try {
-        const { analysis, model } = await analyzeConversation(client, conv, categories);
-        await rpc("ai_save_analysis", { p_conversation: conv.id, p: analysis, p_model: model });
-        done += 1;
+        if (r.result.type !== "succeeded") throw new Error(r.result.type === "errored" ? r.result.error?.error?.message || "erro" : r.result.type);
+        const msg = r.result.message;
+        chunk.push({ id: r.custom_id, analysis: parseAnalysis(msg, b.rosters?.[r.custom_id] ?? []), model: msg.model });
+        if (chunk.length >= 200) await flush();
       } catch (e) {
-        errors.push(`${conv.group_name}: ${e.message}`);
+        if (errors.length < 20) errors.push(`${r.custom_id}: ${e.message}`);
       }
     }
+    await flush();
+    const result = { saved, failed: info.request_counts.errored + info.request_counts.expired + info.request_counts.canceled, errors };
+    await rpc("ai_batch_close", { p_id: b.id, p_result: result });
+    out.push({ batch: b.id, status: "ended", ...result });
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
-  return { ok: true, found: items.length, analyzed: done, errors };
+  return { ok: true, batches: out };
 }

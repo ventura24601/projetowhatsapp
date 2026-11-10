@@ -164,3 +164,31 @@ test("análise de IA é salva e aparece nos insights", async () => {
   await rpc(db, "admin_rebuild_group", { p_group: gid });
   assert.equal((await db.query(`select category from conversations`)).rows[0].category, "Cancelamento");
 });
+
+test("lote de IA: enviado sai da fila, resultado salvo, nova mensagem volta para a fila", async () => {
+  const { db, send } = await setup();
+  await send(zapi({ at: "2026-11-10T12:00:00Z", text: "A tela apagou" }));
+  const p1 = await rpc(db, "ai_pending_conversations", { p_limit: 10, p_idle_minutes: 0 });
+  assert.equal(p1.items.length, 1);
+  const cid = p1.items[0].id;
+
+  await rpc(db, "ai_batch_create", { p_id: "msgbatch_teste", p_rosters: { [cid]: [] } });
+  assert.equal((await rpc(db, "ai_batch_open")).length, 1);
+  assert.equal((await rpc(db, "ai_pending_conversations", { p_limit: 10, p_idle_minutes: 0 })).items.length, 0);
+
+  const n = await rpc(db, "ai_save_analyses", {
+    p: [{ id: cid, model: "teste", analysis: { category: "Suporte", sentiment: "neutro", satisfaction: 3, quality_score: 7,
+      resolved: false, pending_on: "equipe", summary: "Tela apagada", topics: [], customer_questions: [], issues: [], team_feedback: [] } }],
+  });
+  assert.equal(n, 1);
+  await rpc(db, "ai_batch_close", { p_id: "msgbatch_teste", p_result: { saved: 1 } });
+  assert.equal((await rpc(db, "ai_batch_open")).length, 0);
+  assert.equal((await db.query(`select category from conversations where id = $1`, [cid])).rows[0].category, "Suporte");
+  assert.equal((await rpc(db, "ai_pending_conversations", { p_limit: 10, p_idle_minutes: 0 })).items.length, 0);
+  assert.equal((await rpc(db, "ai_batch_status")).status, "ended");
+
+  // mensagem nova depois do envio: o atendimento volta para o próximo lote
+  await send(zapi({ at: new Date(Date.now() + 60e3).toISOString(), text: "Continua apagada" }));
+  await db.query(`update conversations set last_message_at = now() + interval '1 minute'`);
+  assert.equal((await rpc(db, "ai_pending_conversations", { p_limit: 10, p_idle_minutes: -5 })).items.length, 1);
+});

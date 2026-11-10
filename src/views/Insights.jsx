@@ -11,12 +11,19 @@ export default function Insights({ ctx }) {
   );
   const [open, setOpen] = useState(null);
   const [run, setRun] = useState({ busy: false, msg: null });
+  const batch = useData(() => rpc("ai_batch_status"), []);
 
   async function analyze() {
     setRun({ busy: true, msg: null });
     try {
       const r = await analyzeNow();
-      setRun({ busy: false, msg: `${r.analyzed} de ${r.found} atendimentos analisados${r.errors?.length ? ` · ${r.errors.length} erro(s): ${r.errors[0]}` : ""}` });
+      const msg = r.skipped
+        ? "Já há um lote em análise. Os resultados aparecem quando ele terminar."
+        : r.submitted
+          ? `${r.submitted} atendimento(s) enviados para análise. Os resultados costumam aparecer em até 1 hora.`
+          : "Nenhum atendimento novo para analisar.";
+      setRun({ busy: false, msg });
+      batch.reload();
       reload();
     } catch (e) {
       setRun({ busy: false, msg: `Erro: ${e.message}` });
@@ -34,10 +41,14 @@ export default function Insights({ ctx }) {
       <div className="row between wrap">
         <p className="note">
           A IA lê cada atendimento encerrado (sem mensagens há 1h) e classifica motivo, clima do cliente, se foi resolvido e a
-          qualidade das respostas do time. Roda automaticamente a cada 30 minutos.
+          qualidade das respostas do time. Os atendimentos são enviados em lote às 11h e às 16h; os resultados aparecem em até 1 hora.
+          {batch.data && (
+            <> Último envio: {fmtDateTime(batch.data.created_at)} ({fmtNum(batch.data.count)} atendimentos
+              {batch.data.status === "open" ? ", em análise" : `, ${fmtNum(batch.data.result?.saved ?? 0)} analisados`}).</>
+          )}
         </p>
         {ctx.isAdmin && (
-          <button className="btn" onClick={analyze} disabled={run.busy}>{run.busy ? "Analisando…" : "✨ Analisar agora"}</button>
+          <button className="btn" onClick={analyze} disabled={run.busy}>{run.busy ? "Enviando…" : "✨ Enviar para análise agora"}</button>
         )}
       </div>
       {run.msg && <div className="callout">{run.msg}</div>}

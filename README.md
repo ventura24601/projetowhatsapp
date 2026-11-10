@@ -13,7 +13,7 @@ WhatsApp (grupos) ──► Z-API (número do supervisor) ──webhook──►
                                                     Supabase (Postgres) · ingest_zapi()
                                      mensagens → atendimentos → eventos de resposta → SLA
                                                                      │
-               Netlify Function agendada (30 min) ── Claude ──► análise de cada atendimento
+               Netlify Functions agendadas (lote 11h e 16h) ── Claude Batches ──► análise de cada atendimento
                                                                      │
                                                                      ▼
                                                          Painel React (Vite) via RPC
@@ -74,7 +74,7 @@ O pedido usa fallback automático do servidor caso o modelo recuse uma conversa.
 ## Estrutura
 ```
 supabase/migrations/   schema, ingestão Z-API, cálculo de SLA, RPCs do painel, permissões
-netlify/functions/     zapi-webhook, analyze-scheduled (cron 30 min), analyze-now
+netlify/functions/     zapi-webhook, analyze-scheduled (envia lote 11h e 16h), analyze-collect (busca resultados a cada 20 min), analyze-now
 netlify/lib/           webhook, análise com Claude, cliente Supabase
 src/                   painel React
 scripts/               PGlite local, dados simulados, testes
