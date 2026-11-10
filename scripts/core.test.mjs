@@ -192,3 +192,19 @@ test("lote de IA: enviado sai da fila, resultado salvo, nova mensagem volta para
   await db.query(`update conversations set last_message_at = now() + interval '1 minute'`);
   assert.equal((await rpc(db, "ai_pending_conversations", { p_limit: 10, p_idle_minutes: -5 })).items.length, 1);
 });
+
+test("migrations não usam DELETE/UPDATE sem WHERE (bloqueado no Supabase)", async () => {
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const dir = new URL("../supabase/migrations/", import.meta.url);
+  const latest = new Map();
+  for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
+    const sql = readFileSync(new URL(f, dir), "utf8");
+    for (const m of sql.matchAll(/create or replace function (public\.\w+)\([\s\S]*?\$\$([\s\S]*?)\$\$/g)) latest.set(m[1], m[2]);
+  }
+  for (const [fn, body] of latest) {
+    for (const stmt of body.split(";")) {
+      const s = stmt.replace(/--.*$/gm, "").trim().toLowerCase();
+      if (/^(delete from|update)\b/.test(s)) assert.match(s, /\bwhere\b/, `${fn}: ${s.slice(0, 60)}`);
+    }
+  }
+});
