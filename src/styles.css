@@ -210,3 +210,11 @@ input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; backgrou
 .tbl.compare .cmp-sec td { background: var(--bg); color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding-top: 8px; padding-bottom: 6px; }
 .tbl.compare .cmp-best { background: var(--accbg); }
 .tbl.compare .cmp-best b::after { content: " ★"; color: var(--acc); font-size: 11px; }
+.alerts { display: grid; gap: 10px; }
+.alert { border: 1px solid var(--line); border-left: 4px solid var(--blu); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; background: var(--card); }
+.alert.lv-critico { border-left-color: var(--red); }
+.alert.lv-atencao { border-left-color: var(--amb); }
+.alert-g { font-size: 15px; }
+.alert-txt { margin: 0; }
+.chip.w5, .chip.w4 { background: var(--redbg); border-color: transparent; color: var(--red); font-weight: 700; }
+.chip.w3 { background: var(--ambbg); border-color: transparent; color: var(--amb); font-weight: 700; }

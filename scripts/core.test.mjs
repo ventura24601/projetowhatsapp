@@ -273,3 +273,29 @@ test("casos: IA encerra, espera some, cliente reabre, manual e reprocessamento p
   await rpc(db, "case_set", { p_conversation: row.id, p_status: "aberto" });
   assert.equal((await rpc(db, "dash_cases", { p_instance: null })).open_list.length, 1);
 });
+
+test("alertas: motivos, gravidade e 'acompanhando' até nova mensagem", async () => {
+  const { db, send } = await setup();
+  const soon = (min) => new Date(Date.now() - min * 60e3).toISOString();
+  await send(zapi({ at: soon(120), text: "Quero cancelar o contrato, ninguém resolve" }));
+  await send(zapi({ at: soon(110), text: "Alô?" }));
+  await send(zapi({ at: soon(100), text: "Vou ligar para o comercial" }));
+  await db.query(`update conversations set sentiment = 'irritado', summary = 'Cliente quer cancelar', quality_score = 4`);
+  let a = await rpc(db, "dash_alerts", { p_instance: null });
+  assert.equal(a.items.length, 1);
+  const codes = a.items[0].reasons.map((r) => r.code);
+  for (const c of ["irritado", "cancelamento", "espera", "insistindo", "nota"]) assert.ok(codes.includes(c), c);
+  assert.equal(a.items[0].level, "critico");
+  assert.equal(a.counts.critico, 1);
+
+  await rpc(db, "alert_ack", { p_conversation: a.items[0].conversation_id, p_note: "Liguei para o cliente" });
+  a = await rpc(db, "dash_alerts", { p_instance: null });
+  assert.equal(a.counts.critico, 0);
+  assert.equal(a.counts.acked, 1);
+  assert.equal(a.items[0].ack_note, "Liguei para o cliente");
+
+  // mensagem nova do cliente traz o alerta de volta
+  await send(zapi({ at: new Date(Date.now() + 60e3).toISOString(), text: "Continuo aguardando" }));
+  a = await rpc(db, "dash_alerts", { p_instance: null });
+  assert.equal(a.counts.critico, 1);
+});

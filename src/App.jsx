@@ -10,10 +10,12 @@ import Groups from "./views/Groups.jsx";
 import Conversations from "./views/Conversations.jsx";
 import Insights from "./views/Insights.jsx";
 import Settings from "./views/Settings.jsx";
+import Alerts from "./views/Alerts.jsx";
 
 const VIEWS = [
   { id: "geral", icon: "📊", label: "Visão geral", C: Overview },
   { id: "pend", icon: "⏳", label: "Aguardando resposta", C: Pending },
+  { id: "alerta", icon: "🚨", label: "Alerta", C: Alerts },
   { id: "time", icon: "👥", label: "Equipe", C: Team },
   { id: "grupos", icon: "💬", label: "Grupos", C: Groups },
   { id: "conv", icon: "🗂️", label: "Atendimentos", C: Conversations },
@@ -60,6 +62,7 @@ function Shell() {
   const me = useData(() => rpc("whoami"), []);
   const instances = useData(() => rpc("list_instances"), []);
   const pending = useData(() => rpc("dash_pending", { p_instance: inst || null }), [inst], { refreshMs: 60000 });
+  const alerts = useData(() => rpc("dash_alerts", { p_instance: inst || null }), [inst], { refreshMs: 120000 });
 
   useEffect(() => {
     const onHash = () => {
@@ -87,12 +90,14 @@ function Shell() {
     instances: instances.data || [],
     reloadInstances: instances.reload,
     reloadPending: pending.reload,
+    reloadAlerts: alerts.reload,
     go: (v) => { setView(v); setNavOpen(false); },
   };
   if (!DEMO && me.data && !me.data.role) return <NoAccess email={me.data.email} />;
   const Current = (VIEWS.find((v) => v.id === view) || VIEWS[0]).C;
   const waiting = pending.data?.length ?? 0;
   const late = pending.data?.filter((p) => p.breached).length ?? 0;
+  const critical = alerts.data?.counts?.critico ?? 0;
 
   return (
     <div className={`app ${navOpen ? "nav-open" : ""}`}>
@@ -106,6 +111,7 @@ function Shell() {
               <span aria-hidden>{v.icon}</span>
               {v.label}
               {v.id === "pend" && waiting > 0 && <span className={`cnt ${late ? "late" : ""}`}>{waiting}</span>}
+              {v.id === "alerta" && critical > 0 && <span className="cnt late" title="Alertas críticos">{critical}</span>}
             </button>
           ))}
         </nav>
