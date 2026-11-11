@@ -56,6 +56,9 @@ http
         const r = await submitCaseBatch(call);
         return send(res, r.ok ? 200 : 400, r);
       }
+      if (url.pathname === "/api/users") {
+        return send(res, 400, { ok: false, error: "Cadastro de usuários não está disponível no modo demonstração." });
+      }
       send(res, 404, { message: "not found" });
     } catch (e) {
       send(res, 400, { message: e.message });

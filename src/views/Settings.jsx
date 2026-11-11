@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { rpc, webhookUrl, DEMO } from "../api.js";
+import { rpc, webhookUrl, DEMO, manageUser } from "../api.js";
 import { ago, fmtNum } from "../lib/format.js";
 import { Card, Empty, ErrorBox, Modal, Pill, Seg, useData } from "../components/ui.jsx";
 
@@ -327,42 +327,138 @@ function SlaSettings() {
   );
 }
 
+const genPassword = () => {
+  const abc = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const r = crypto.getRandomValues(new Uint32Array(12));
+  return Array.from(r, (n) => abc[n % abc.length]).join("");
+};
+
 function Users() {
   const list = useData(() => rpc("list_users"), []);
+  const me = useData(() => rpc("whoami"), []);
   const [err, setErr] = useState(null);
-  async function setRole(u, role) {
+  const [form, setForm] = useState(null); // { mode: "create" | "password", user? }
+  const [done, setDone] = useState(null); // credenciais recém-definidas, mostradas uma vez
+
+  async function run(fn) {
+    setErr(null);
     try {
-      await rpc("set_user_role", { p_user: u.user_id, p_role: role });
+      await fn();
       list.reload();
     } catch (e) {
       setErr(e.message);
     }
   }
+  const setRole = (u, role) => run(() => rpc("set_user_role", { p_user: u.user_id, p_role: role }));
+  const rename = (u) => {
+    const name = prompt("Nome do usuário", u.name || "");
+    if (name != null) run(() => rpc("set_user_name", { p_user: u.user_id, p_name: name }));
+  };
+  const remove = (u) =>
+    confirm(`Remover ${u.email}? A pessoa perde o acesso e o login é apagado.`) &&
+    run(() => manageUser({ action: "remove", user_id: u.user_id }));
+
   return (
-    <Card title="Usuários do painel">
+    <Card
+      title="Usuários do painel"
+      action={!DEMO && <button className="btn" onClick={() => setForm({ mode: "create" })}>+ Novo usuário</button>}
+    >
       <p className="note">
-        Convide pessoas pelo painel do Supabase (Authentication → Users → Invite). O primeiro usuário vira admin; os
-        próximos entram como “visualizador” e só veem os relatórios.
+        Só entra no painel quem for cadastrado aqui. <b>Admin</b> vê tudo e altera cadastros;{" "}
+        <b>Visualizador</b> só vê os relatórios. Depois do primeiro acesso, cada pessoa pode trocar a própria senha
+        em “Trocar senha”, no menu lateral.
       </p>
+      {DEMO && <p className="note">No modo demonstração não dá para criar usuários.</p>}
       <ErrorBox error={err || list.error} />
+      {done && (
+        <div className="callout">
+          <b>Acesso de {done.email}</b> — envie estes dados para a pessoa (a senha não aparece de novo):
+          <pre>{`Endereço: ${window.location.origin}\nE-mail: ${done.email}\nSenha: ${done.password}`}</pre>
+          <div className="row">
+            <button className="btn small" onClick={() => navigator.clipboard?.writeText(`Endereço: ${window.location.origin}\nE-mail: ${done.email}\nSenha: ${done.password}`)}>Copiar</button>
+            <button className="btn small ghost" onClick={() => setDone(null)}>Fechar</button>
+          </div>
+        </div>
+      )}
       <table className="tbl">
-        <thead><tr><th>E-mail</th><th>Papel</th><th>Desde</th><th /></tr></thead>
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Desde</th><th /></tr></thead>
         <tbody>
-          {(list.data || []).map((u) => (
-            <tr key={u.user_id}>
-              <td>{u.email || u.user_id}</td>
-              <td>
-                <select className="input" value={u.role} onChange={(e) => setRole(u, e.target.value)}>
-                  <option value="admin">Admin</option>
-                  <option value="viewer">Visualizador</option>
-                </select>
-              </td>
-              <td>{new Date(u.created_at).toLocaleDateString("pt-BR")}</td>
-              <td><button className="btn small ghost danger" onClick={() => confirm("Remover acesso?") && setRole(u, "remove")}>Remover</button></td>
-            </tr>
-          ))}
+          {(list.data || []).map((u) => {
+            const self = u.user_id === me.data?.user_id;
+            return (
+              <tr key={u.user_id}>
+                <td>{u.name || <span className="sub">—</span>} <button className="btn small ghost" onClick={() => rename(u)} title="Editar nome">✎</button></td>
+                <td>{u.email || u.user_id}{self && <span className="sub"> (você)</span>}</td>
+                <td>
+                  <select className="input" value={u.role} disabled={self} onChange={(e) => setRole(u, e.target.value)}>
+                    <option value="admin">Admin</option>
+                    <option value="viewer">Visualizador</option>
+                  </select>
+                </td>
+                <td>{new Date(u.created_at).toLocaleDateString("pt-BR")}</td>
+                <td className="row">
+                  {!DEMO && <button className="btn small ghost" onClick={() => setForm({ mode: "password", user: u })}>Nova senha</button>}
+                  {!DEMO && !self && <button className="btn small ghost danger" onClick={() => remove(u)}>Remover</button>}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
+      {form && (
+        <UserForm
+          form={form}
+          onClose={() => setForm(null)}
+          onDone={(cred) => { setForm(null); setDone(cred); list.reload(); }}
+        />
+      )}
     </Card>
+  );
+}
+
+function UserForm({ form, onClose, onDone }) {
+  const editing = form.mode === "password";
+  const [f, setF] = useState({ name: "", email: form.user?.email || "", role: "viewer", password: genPassword() });
+  const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      if (editing) await manageUser({ action: "password", user_id: form.user.user_id, password: f.password });
+      else await manageUser({ action: "create", ...f });
+      onDone({ email: f.email.trim().toLowerCase(), password: f.password });
+    } catch (e2) {
+      setErr(e2.message);
+    }
+    setBusy(false);
+  }
+  return (
+    <Modal title={editing ? `Nova senha · ${form.user.email}` : "Novo usuário"} onClose={onClose}>
+      <form className="form" onSubmit={save}>
+        <ErrorBox error={err} />
+        {!editing && (
+          <>
+            <label>Nome<input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
+            <label>E-mail<input className="input" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></label>
+            <label>Papel
+              <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}>
+                <option value="viewer">Visualizador — só vê os relatórios</option>
+                <option value="admin">Admin — vê tudo e altera cadastros</option>
+              </select>
+            </label>
+          </>
+        )}
+        <label>Senha provisória
+          <div className="row">
+            <input className="input" required minLength={8} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
+            <button type="button" className="btn small ghost" onClick={() => setF({ ...f, password: genPassword() })}>Gerar outra</button>
+          </div>
+          <span className="sub">Mínimo de 8 caracteres. A pessoa pode trocar depois de entrar.</span>
+        </label>
+        <div className="form-actions"><button className="btn" disabled={busy}>{busy ? "Salvando…" : editing ? "Salvar senha" : "Criar usuário"}</button></div>
+      </form>
+    </Modal>
   );
 }

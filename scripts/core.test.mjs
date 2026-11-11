@@ -129,8 +129,15 @@ test("horário comercial: mensagem fora do expediente conta a partir da abertura
 
 test("viewer não pode alterar cadastros", async () => {
   const { db } = await setup();
-  await asUser(db, { id: "00000000-0000-4000-8000-000000000002", email: "viewer@demo.local" });
-  assert.equal((await rpc(db, "whoami")).role, "viewer");
+  const viewer = { id: "00000000-0000-4000-8000-000000000002", email: "viewer@demo.local" };
+  await asUser(db, viewer);
+  // quem não foi cadastrado por um admin não tem acesso
+  assert.equal((await rpc(db, "whoami")).role, null);
+  await assert.rejects(rpc(db, "dash_pending", { p_instance: null }), /login/);
+  await rpc(db, "user_save", { p_user: viewer.id, p_email: viewer.email, p_name: "Visualizador", p_role: "viewer" });
+  const me = await rpc(db, "whoami");
+  assert.equal(me.role, "viewer");
+  assert.equal(me.name, "Visualizador");
   await assert.rejects(rpc(db, "save_attendant", { p: { name: "X", phone: "11999990000" } }), /administradores/);
   await asUser(db, null);
   await assert.rejects(rpc(db, "dash_pending", { p_instance: null }), /login/);

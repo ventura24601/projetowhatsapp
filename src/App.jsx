@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DEMO, supabase, rpc } from "./api.js";
 import { periodRange } from "./lib/format.js";
 import { Seg, useData } from "./components/ui.jsx";
-import Login from "./views/Login.jsx";
+import Login, { ChangePassword, NoAccess } from "./views/Login.jsx";
 import Overview from "./views/Overview.jsx";
 import Pending from "./views/Pending.jsx";
 import Team from "./views/Team.jsx";
@@ -55,6 +55,7 @@ function Shell() {
   const [period, setPeriod] = useState(init.period);
   const [custom, setCustom] = useState({ from: "", to: "" });
   const [navOpen, setNavOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
 
   const me = useData(() => rpc("whoami"), []);
   const instances = useData(() => rpc("list_instances"), []);
@@ -88,6 +89,7 @@ function Shell() {
     reloadPending: pending.reload,
     go: (v) => { setView(v); setNavOpen(false); },
   };
+  if (!DEMO && me.data && !me.data.role) return <NoAccess email={me.data.email} />;
   const Current = (VIEWS.find((v) => v.id === view) || VIEWS[0]).C;
   const waiting = pending.data?.length ?? 0;
   const late = pending.data?.filter((p) => p.breached).length ?? 0;
@@ -115,12 +117,14 @@ function Shell() {
             </div>
           ))}
           <div className="foot-row">
+            {!DEMO && <button onClick={() => setPwOpen(true)}>Trocar senha</button>}
             {!DEMO && <button onClick={() => supabase.auth.signOut()}>Sair</button>}
           </div>
-          <small>{DEMO ? "Modo demonstração (dados simulados)" : me.data?.email}</small>
+          <small>{DEMO ? "Modo demonstração (dados simulados)" : me.data?.name || me.data?.email}</small>
         </div>
       </aside>
       <div className="scrim" onClick={() => setNavOpen(false)} />
+      {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
 
       <main>
         <div className="top">
