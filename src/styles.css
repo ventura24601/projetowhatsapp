@@ -205,3 +205,8 @@ input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; backgrou
   .row:not(.between) { flex-wrap: wrap; }
 }
 .input.search { width: min(320px, 100%); }
+.tbl.compare th[scope="row"] { font-weight: 600; color: var(--text); text-align: left; text-transform: none; letter-spacing: 0; font-size: 13px; }
+.tbl.compare td { min-width: 150px; }
+.tbl.compare .cmp-sec td { background: var(--bg); color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding-top: 8px; padding-bottom: 6px; }
+.tbl.compare .cmp-best { background: var(--accbg); }
+.tbl.compare .cmp-best b::after { content: " ★"; color: var(--acc); font-size: 11px; }

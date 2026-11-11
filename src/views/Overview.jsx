@@ -2,6 +2,7 @@ import { rpc } from "../api.js";
 import { fmtDur, fmtNum, fmtPct, fmtDay, ago } from "../lib/format.js";
 import { Card, Kpi, Delta, useData, HBars, ErrorBox, Empty, InstanceTag } from "../components/ui.jsx";
 import CasesCard from "./Cases.jsx";
+import CompareCard from "./Compare.jsx";
 
 const DOW = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -100,6 +101,8 @@ export default function Overview({ ctx }) {
           <Heat cells={data.heat} />
         </Card>
       </div>
+
+      <CompareCard ctx={ctx} />
     </div>
   );
 }
