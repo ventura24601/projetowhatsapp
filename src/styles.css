@@ -236,3 +236,29 @@ input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; backgrou
 .tr-l { font-size: 10px; color: var(--muted); text-align: center; white-space: nowrap; height: 14px; line-height: 14px; }
 .tr-ref { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); pointer-events: none; }
 .tr-ref span { position: absolute; right: 0; top: -14px; font-size: 10px; color: var(--muted); }
+.cal-s { display: inline-block; min-width: 34px; text-align: center; padding: 2px 6px; border-radius: 7px; font-weight: 800; font-size: 13px; font-style: normal; background: var(--line); color: var(--muted); }
+.cal-s.big { font-size: 17px; min-width: 46px; padding: 4px 8px; }
+.cal-s.good { background: var(--grnbg); color: var(--grn); }
+.cal-s.warn { background: var(--ambbg); color: var(--amb); }
+.cal-s.bad { background: var(--redbg); color: var(--red); }
+.cal-s.na { background: transparent; }
+.tbl.cal td, .tbl.cal th { text-align: center; }
+.tbl.cal td:first-child, .tbl.cal th:first-child { text-align: left; }
+.tbl.cal .cal-avg td { background: var(--bg); }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; align-items: center; }
+.cal-legend .cal-s { font-size: 11px; min-width: 0; margin-right: 4px; }
+.cal-head { gap: 16px; align-items: flex-start; flex-wrap: nowrap; }
+.cal-head .cal-s.big { font-size: 26px; padding: 8px 12px; }
+.callout.warnbox { background: var(--ambbg); }
+.cal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.cal-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; align-content: start; }
+.cal-bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.cal-bar i { display: block; height: 100%; border-radius: 3px; background: var(--muted); }
+.cal-bar i.good { background: var(--grn); } .cal-bar i.warn { background: var(--amb); } .cal-bar i.bad { background: var(--red); }
+.cal-ex { margin: 0; padding-left: 16px; font-size: 12px; color: var(--muted); font-style: italic; }
+.cal-hist { display: flex; gap: 8px; align-items: flex-end; height: 110px; margin-top: 8px; }
+.cal-hist div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 40px; gap: 3px; }
+.cal-hist span { font-size: 11px; font-weight: 700; }
+.cal-hist i { width: 22px; border-radius: 4px 4px 0 0; background: var(--muted); }
+.cal-hist i.good { background: var(--grn); } .cal-hist i.warn { background: var(--amb); } .cal-hist i.bad { background: var(--red); }
+.cal-hist small { font-size: 10px; color: var(--muted); }

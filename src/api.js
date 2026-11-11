@@ -36,6 +36,7 @@ async function postAdmin(path, fallbackError, payload) {
 
 export const analyzeNow = () => postAdmin("/api/analyze-now", "Falha ao analisar");
 export const manageUser = (payload) => postAdmin("/api/users", "Falha ao salvar usuário", payload);
+export const calibrateNow = () => postAdmin("/api/calibration-now", "Falha ao iniciar a calibragem");
 export const reviewCasesNow = () => postAdmin("/api/cases-review-now", "Falha ao revisar casos");
 
 export function webhookUrl(inst) {

@@ -11,12 +11,14 @@ import Conversations from "./views/Conversations.jsx";
 import Insights from "./views/Insights.jsx";
 import Settings from "./views/Settings.jsx";
 import Alerts from "./views/Alerts.jsx";
+import Calibration from "./views/Calibration.jsx";
 
 const VIEWS = [
   { id: "geral", icon: "📊", label: "Visão geral", C: Overview },
   { id: "pend", icon: "⏳", label: "Aguardando resposta", C: Pending },
   { id: "alerta", icon: "🚨", label: "Alerta", C: Alerts },
   { id: "time", icon: "👥", label: "Equipe", C: Team },
+  { id: "calib", icon: "🎯", label: "Calibragem", C: Calibration },
   { id: "grupos", icon: "💬", label: "Grupos", C: Groups },
   { id: "conv", icon: "🗂️", label: "Atendimentos", C: Conversations },
   { id: "ia", icon: "✨", label: "Análise (IA)", C: Insights },

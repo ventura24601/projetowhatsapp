@@ -314,3 +314,32 @@ test("tendência: mensagens e respostas por semana, dia e dia da semana", async 
   }
   assert.equal(Number(t.by_day.at(-1).median_seconds), 600);
 });
+
+test("calibragem: candidatos, nota de velocidade, gravação e tela", async () => {
+  const { db, send } = await setup();
+  const { CRITERIA, parseCalibration, speedScore } = await import("../netlify/lib/calibration.mjs");
+  await rpc(db, "save_attendant", { p: { name: "Ana", phone: "11988887777", products: ["black"] } });
+  const t0 = Date.now() - 5 * 3600e3;
+  const at = (min) => new Date(t0 + min * 60e3).toISOString();
+  for (let i = 0; i < 6; i++) {
+    await send(zapi({ at: at(i * 30), text: `Pergunta ${i}` }));
+    await send(zapi({ at: at(i * 30 + 5), from: "atendente", phone: "11988887777", text: `Resposta ${i}` }));
+  }
+  const cand = await rpc(db, "ai_calibration_candidates", { p_days: 30 });
+  assert.equal(cand.items.length, 1);
+  const ana = cand.items[0];
+  assert.equal(Number(ana.msgs), 6);
+  assert.equal(ana.messages[0].prev.who, "cliente");
+  const speed = speedScore(ana.resp);
+  assert.equal(speed.score, 9.8); // 100% no SLA; mediana de 5 min com SLA de 15
+
+  const criteria = Object.fromEntries(CRITERIA.map((c) => [c.key, { score: 7, evidence: c.key !== "conhecimento_marketing", comment: "ok", examples: [], improve: "x" }]));
+  const msg = { stop_reason: "end_turn", model: "m", content: [{ type: "text", text: JSON.stringify({ criteria, summary: "s", strengths: "f", improve: "i" }) }] };
+  const row = parseCalibration(msg, { attendant_id: ana.id, period_from: cand.from, period_to: cand.to, speed, metrics: {} }, "b1");
+  assert.equal(row.overall, 7.4); // 6 critérios com 7 + velocidade 9,8; marketing sem evidência fica fora
+  assert.equal(await rpc(db, "ai_save_calibrations", { p: [row] }), 1);
+  const dash = await rpc(db, "dash_calibration", { p_instance: "black" });
+  assert.equal(dash.items.length, 1);
+  assert.equal(Number(dash.items[0].overall), 7.4);
+  assert.equal((await rpc(db, "dash_calibration", { p_instance: "redes" })).items.length, 0);
+});

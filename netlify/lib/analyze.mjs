@@ -1,6 +1,7 @@
 // Análise de atendimentos com Claude: categoria, sentimento, resolução, qualidade do time, FAQ.
 import Anthropic from "@anthropic-ai/sdk";
 import { parseCaseDecision } from "./cases.mjs";
+import { parseCalibration } from "./calibration.mjs";
 
 export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5-5";
 
@@ -161,13 +162,16 @@ export async function collectAnalysisBatches(rpc) {
       continue;
     }
     const isCase = b.kind === "casos";
+    const isCal = b.kind === "calibragem";
     let saved = 0;
     let closed = 0;
     const errors = [];
     let chunk = [];
     const flush = async () => {
       if (!chunk.length) return;
-      if (isCase) {
+      if (isCal) {
+        saved += await rpc("ai_save_calibrations", { p: chunk });
+      } else if (isCase) {
         const r = await rpc("ai_save_cases", { p: chunk, p_checked_at: b.created_at });
         saved += r.checked;
         closed += r.closed;
@@ -180,7 +184,9 @@ export async function collectAnalysisBatches(rpc) {
       try {
         if (r.result.type !== "succeeded") throw new Error(r.result.type === "errored" ? r.result.error?.error?.message || "erro" : r.result.type);
         const msg = r.result.message;
-        chunk.push(isCase
+        chunk.push(isCal
+          ? parseCalibration(msg, b.rosters?.[r.custom_id] ?? {}, b.id)
+          : isCase
           ? { id: r.custom_id, decision: parseCaseDecision(msg), model: msg.model }
           : { id: r.custom_id, analysis: parseAnalysis(msg, b.rosters?.[r.custom_id] ?? []), model: msg.model });
         if (chunk.length >= 200) await flush();
