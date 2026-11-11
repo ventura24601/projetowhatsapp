@@ -204,3 +204,4 @@ input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; backgrou
   .bubble { max-width: 92%; }
   .row:not(.between) { flex-wrap: wrap; }
 }
+.input.search { width: min(320px, 100%); }

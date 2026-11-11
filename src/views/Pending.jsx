@@ -7,8 +7,16 @@ import Thread from "./Thread.jsx";
 export default function Pending({ ctx, pending }) {
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(null);
+  const [q, setQ] = useState("");
   const rows = pending.data || [];
   const late = rows.filter((r) => r.breached);
+  const terms = norm(q).split(/\s+/).filter(Boolean);
+  const shown = terms.length
+    ? rows.filter((r) => {
+        const hay = norm([r.group_name, r.instance_name, r.first_message, r.last_message, r.owner_name, r.last_responder, r.customer_name].join(" "));
+        return terms.every((t) => hay.includes(t));
+      })
+    : rows;
 
   async function resolve(r) {
     if (!confirm(`Marcar "${r.group_name}" como resolvido sem resposta? O tempo não entra nas métricas.`)) return;
@@ -35,9 +43,27 @@ export default function Pending({ ctx, pending }) {
         <div className={`kpi ${late.length ? "bad" : "good"}`}><span className="kpi-l">Fora do SLA</span><strong className="kpi-v">{late.length}</strong></div>
         <div className="kpi"><span className="kpi-l">Maior espera</span><strong className="kpi-v">{fmtDur(rows[0]?.eff_seconds)}</strong></div>
       </div>
-      <Card title="Fila de espera" hint="Ordenado pela espera (em horário comercial, se configurado)">
+      <Card
+        title="Fila de espera"
+        hint="Ordenado pela espera (em horário comercial, se configurado)"
+        action={rows.length > 0 && (
+          <input
+            className="input search"
+            type="search"
+            placeholder="Pesquisar grupo, mensagem ou responsável…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Pesquisar na fila de espera"
+          />
+        )}
+      >
+        {terms.length > 0 && rows.length > 0 && (
+          <p className="sub">{shown.length} de {rows.length} grupo(s){shown.length < rows.length && <> · <button className="btn small ghost" onClick={() => setQ("")}>Limpar</button></>}</p>
+        )}
         {rows.length === 0 ? (
           <Empty>{pending.loading ? "Carregando…" : "Nenhum cliente aguardando resposta agora. 🎉"}</Empty>
+        ) : shown.length === 0 ? (
+          <Empty>Nenhum grupo na fila corresponde a “{q}”.</Empty>
         ) : (
           <div className="table-wrap">
             <table className="tbl">
@@ -45,7 +71,7 @@ export default function Pending({ ctx, pending }) {
                 <tr><th>Grupo</th><th>Esperando</th><th>Desde</th><th>Mensagem do cliente</th><th>Responsável</th><th /></tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {shown.map((r) => (
                   <tr key={r.group_id} className="click" onClick={() => setOpen(r)}>
                     <td>
                       <b>{r.group_name}</b>
@@ -75,4 +101,8 @@ export default function Pending({ ctx, pending }) {
       {open && <Thread groupId={open.group_id} title={open.group_name} onClose={() => setOpen(null)} />}
     </div>
   );
+}
+
+function norm(s) {
+  return String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
