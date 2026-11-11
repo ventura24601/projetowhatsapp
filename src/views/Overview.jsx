@@ -3,6 +3,7 @@ import { fmtDur, fmtNum, fmtPct, fmtDay, ago } from "../lib/format.js";
 import { Card, Kpi, Delta, useData, HBars, ErrorBox, Empty, InstanceTag } from "../components/ui.jsx";
 import CasesCard from "./Cases.jsx";
 import CompareCard from "./Compare.jsx";
+import TrendCard from "./Trend.jsx";
 
 const DOW = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -26,8 +27,6 @@ export default function Overview({ ctx }) {
           : "Tempos contados em relógio corrido (24h)."}{" "}
         Uma “resposta” é a primeira mensagem do time depois de uma ou mais mensagens do cliente.
       </p>
-
-      <CasesCard ctx={ctx} />
 
       <div className="kpis">
         <Kpi
@@ -103,6 +102,10 @@ export default function Overview({ ctx }) {
       </div>
 
       <CompareCard ctx={ctx} />
+
+      <CasesCard ctx={ctx} />
+
+      <TrendCard ctx={ctx} />
     </div>
   );
 }

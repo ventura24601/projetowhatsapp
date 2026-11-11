@@ -299,3 +299,18 @@ test("alertas: motivos, gravidade e 'acompanhando' até nova mensagem", async ()
   a = await rpc(db, "dash_alerts", { p_instance: null });
   assert.equal(a.counts.critico, 1);
 });
+
+test("tendência: mensagens e respostas por semana, dia e dia da semana", async () => {
+  const { db, send } = await setup();
+  await rpc(db, "save_attendant", { p: { name: "Ana", phone: "11988887777" } });
+  const t0 = Date.now() - 3 * 3600e3;
+  await send(zapi({ at: new Date(t0).toISOString(), text: "Tela apagada" }));
+  await send(zapi({ at: new Date(t0 + 10 * 60e3).toISOString(), from: "atendente", phone: "11988887777", text: "Vou ver" }));
+  const t = await rpc(db, "dash_trend", { p_instance: null, p_weeks: 4 });
+  for (const key of ["by_week", "by_day", "by_dow"]) {
+    const sum = t[key].reduce((a, r) => a + Number(r.customer_msgs), 0);
+    assert.equal(sum, 1, key);
+    assert.equal(t[key].reduce((a, r) => a + Number(r.responses), 0), 1, key);
+  }
+  assert.equal(Number(t.by_day.at(-1).median_seconds), 600);
+});

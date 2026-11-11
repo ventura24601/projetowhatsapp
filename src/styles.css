@@ -218,3 +218,21 @@ input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; backgrou
 .alert-txt { margin: 0; }
 .chip.w5, .chip.w4 { background: var(--redbg); border-color: transparent; color: var(--red); font-weight: 700; }
 .chip.w3 { background: var(--ambbg); border-color: transparent; color: var(--amb); font-weight: 700; }
+.trend-detail { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; font-size: 13px; padding: 8px 12px; background: var(--bg); border-radius: 9px; margin-bottom: 12px; }
+.trend-detail b { margin-right: 4px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.trend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.trend { margin: 0; min-width: 0; }
+.trend figcaption { font-weight: 800; font-size: 13px; margin-bottom: 8px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.trend .legend { display: inline-flex; gap: 10px; font-weight: 600; color: var(--muted); font-size: 12px; }
+.tr-plot { position: relative; display: flex; align-items: stretch; height: 190px; padding-top: 16px; }
+.tr-bars { border-bottom: 1px solid var(--line); }
+.tr-col { flex: 1; min-width: 0; display: flex; flex-direction: column; cursor: default; border-radius: 6px; }
+.tr-col.on { background: var(--accbg); }
+.tr-bars { flex: 1; display: flex; gap: 2px; align-items: flex-end; justify-content: center; padding: 0 2px; }
+.tr-bar-wrap { position: relative; height: 100%; flex: 1; max-width: 22px; display: flex; align-items: flex-end; }
+.tr-bar { width: 100%; border-radius: 4px 4px 0 0; }
+.tr-v { position: absolute; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.tr-l { font-size: 10px; color: var(--muted); text-align: center; white-space: nowrap; height: 14px; line-height: 14px; }
+.tr-ref { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); pointer-events: none; }
+.tr-ref span { position: absolute; right: 0; top: -14px; font-size: 10px; color: var(--muted); }
