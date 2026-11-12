@@ -12,6 +12,7 @@ import Insights from "./views/Insights.jsx";
 import Settings from "./views/Settings.jsx";
 import Alerts from "./views/Alerts.jsx";
 import Calibration from "./views/Calibration.jsx";
+import Helpdesk from "./views/Helpdesk.jsx";
 
 const VIEWS = [
   { id: "geral", icon: "📊", label: "Visão geral", C: Overview },
@@ -19,6 +20,7 @@ const VIEWS = [
   { id: "alerta", icon: "🚨", label: "Alerta", C: Alerts },
   { id: "time", icon: "👥", label: "Equipe", C: Team },
   { id: "calib", icon: "🎯", label: "Calibragem", C: Calibration },
+  { id: "helpdesk", icon: "🛟", label: "Helpdesk", C: Helpdesk },
   { id: "grupos", icon: "💬", label: "Grupos", C: Groups },
   { id: "conv", icon: "🗂️", label: "Atendimentos", C: Conversations },
   { id: "ia", icon: "✨", label: "Análise (IA)", C: Insights },

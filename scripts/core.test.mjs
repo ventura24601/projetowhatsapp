@@ -376,3 +376,24 @@ test("helpdesk: não abre espera, não responde, fora das contagens e da equipe;
   const list = await rpc(db, "list_attendants");
   assert.equal(list.find((a) => a.name === "Hugo HD").team, "helpdesk");
 });
+
+test("tela helpdesk: pessoas, entradas e últimas mensagens", async () => {
+  const { db, send } = await setup();
+  await rpc(db, "save_attendant", { p: { name: "Ana", phone: "11 98888-7777" } });
+  await rpc(db, "save_attendant", { p: { name: "Hugo HD", phone: "31 95555-4444", team: "helpdesk" } });
+  await send(zapi({ at: "2026-11-10T12:00:00Z", text: "A tela apagou" }));
+  await send(zapi({ at: "2026-11-10T12:05:00Z", phone: "5511988887777", text: "Vou acionar o helpdesk" }));
+  await send(zapi({ at: "2026-11-10T12:15:00Z", phone: "5531955554444", text: "Reiniciei o player" }));
+  await send(zapi({ at: "2026-11-10T12:16:00Z", phone: "5531955554444", text: "Já deve voltar" }));
+  const d = await rpc(db, "dash_helpdesk", { p_instance: "black", p_from: "2026-11-10T00:00:00Z", p_to: "2026-11-11T00:00:00Z" });
+  assert.equal(Number(d.kpis.msgs), 2);
+  assert.equal(Number(d.kpis.entries), 1);
+  assert.equal(Number(d.kpis.by_time), 1);
+  assert.equal(Number(d.kpis.median_entry_seconds), 600);
+  assert.equal(d.members.length, 1);
+  assert.equal(d.members[0].name, "Hugo HD");
+  assert.equal(Number(d.members[0].msgs), 2);
+  assert.equal(d.recent[0].text, "Já deve voltar");
+  assert.equal(d.recent[1].prev_name, "Ana");
+  assert.equal(d.groups.length, 1);
+});

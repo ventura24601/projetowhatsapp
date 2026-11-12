@@ -9,6 +9,11 @@ const ATTENDANTS = [
   { name: "Elisa Prado", phone: "5511981110005", area: "CS", products: ["black"] },
 ];
 // Um integrante do time ainda não cadastrado (aparece em "Números não cadastrados")
+const HELPDESK = [
+  { name: "Hugo (Helpdesk)", phone: "5511981110010", area: "Helpdesk", products: [], team: "helpdesk" },
+  { name: "Iara (Helpdesk)", phone: "5511981110011", area: "Helpdesk", products: [], team: "helpdesk" },
+];
+const HD_MSGS = ["Pessoal, já reiniciei o player remotamente.", "Atualizei o conteúdo no sistema, confere aí?", "Verifiquei o equipamento, está online agora.", "Abri chamado com o fornecedor, aviso quando voltar."];
 const UNREGISTERED = { name: "Fábio (novo)", phone: "5511981110006" };
 
 const CLIENTS = {
@@ -41,7 +46,7 @@ const pick = (a) => a[Math.floor(rand() * a.length)];
 const between = (a, b) => a + rand() * (b - a);
 
 export async function seedDemo(db, { days = 14 } = {}) {
-  for (const a of ATTENDANTS) await rpc(db, "save_attendant", { p: a });
+  for (const a of [...ATTENDANTS, ...HELPDESK]) await rpc(db, "save_attendant", { p: a });
   const inst = (await db.query(`select slug, webhook_secret from instances`)).rows;
   const secret = Object.fromEntries(inst.map((r) => [r.slug, r.webhook_secret]));
 
@@ -68,6 +73,7 @@ export async function seedDemo(db, { days = 14 } = {}) {
         const responder = rand() < 0.15 ? "supervisor" : rand() < 0.08 ? UNREGISTERED : pick(team);
         t += (slow ? between(20, 180) : between(2, 40)) * 60e3;
         push(responder === "supervisor" ? "supervisor" : "time", pick(TEAM_REPLIES), responder);
+        if (rand() < 0.2) { t += between(3, 45) * 60e3; push("time", pick(HD_MSGS), pick(HELPDESK)); }
         if (rand() < 0.6) {
           t += between(5, 60) * 60e3;
           push("cliente", pick(CLOSERS), customer);

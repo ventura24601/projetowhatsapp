@@ -263,3 +263,21 @@ input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; backgrou
 .cal-hist i { width: 22px; border-radius: 4px 4px 0 0; background: var(--muted); }
 .cal-hist i.good { background: var(--grn); } .cal-hist i.warn { background: var(--amb); } .cal-hist i.bad { background: var(--red); }
 .cal-hist small { font-size: 10px; color: var(--muted); }
+
+/* Helpdesk */
+.hd-cols { display: flex; align-items: flex-end; gap: 3px; height: 170px; padding: 18px 0 22px; }
+.hd-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; }
+.hd-b { width: 100%; max-width: 28px; background: var(--acc); border-radius: 4px 4px 0 0; min-height: 0; }
+.hd-v { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+.hd-d { position: absolute; bottom: -18px; font-size: 10px; color: var(--muted); white-space: nowrap; }
+.hd-cols:has(.hd-col:nth-child(15)) .hd-col:nth-child(even) .hd-d { visibility: hidden; }
+.hd-groups { display: flex; flex-direction: column; gap: 6px; max-height: 230px; overflow-y: auto; }
+.hd-g { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; font: inherit; color: inherit; }
+.hd-g:hover { border-color: var(--acc); }
+.hd-gn { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-weight: 600; }
+.hd-feed { display: flex; flex-direction: column; gap: 8px; }
+.hd-item { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.hd-item:hover { border-color: var(--acc); }
+.hd-prev { margin: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hd-txt { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.hd-item > .pill { align-self: flex-start; }
