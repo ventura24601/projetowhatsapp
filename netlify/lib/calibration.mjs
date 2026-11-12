@@ -89,7 +89,7 @@ export function speedScore(resp) {
 
 function buildParams(att, period) {
   const lines = att.messages.map((m) => {
-    const prev = m.prev ? `   ↳ antes: ${m.prev.who === "cliente" ? "Cliente" : "Time"}: ${m.prev.text}` : "   ↳ (primeira mensagem do grupo)";
+    const prev = m.prev ? `   ↳ antes: ${m.prev.who === "cliente" ? "Cliente" : m.prev.who === "helpdesk" ? "Helpdesk interno" : "Time"}: ${m.prev.text}` : "   ↳ (primeira mensagem do grupo)";
     return `[${fmtTime(m.at)} · ${m.grp}]\n${prev}\n   → ${att.name}: ${m.text}`;
   });
   const r = att.resp || {};

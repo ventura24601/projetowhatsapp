@@ -343,3 +343,36 @@ test("calibragem: candidatos, nota de velocidade, gravação e tela", async () =
   assert.equal(Number(dash.items[0].overall), 7.4);
   assert.equal((await rpc(db, "dash_calibration", { p_instance: "redes" })).items.length, 0);
 });
+
+test("helpdesk: não abre espera, não responde, fora das contagens e da equipe; reclassificar reprocessa", async () => {
+  const { db, send } = await setup();
+  await rpc(db, "save_attendant", { p: { name: "Ana", phone: "11 98888-7777", products: ["black"] } });
+  await send(zapi({ at: "2026-11-10T12:00:00Z", text: "A tela apagou" }));
+  // helpdesk ainda não cadastrado: conta como cliente
+  await send(zapi({ at: "2026-11-10T12:03:00Z", phone: "5531955554444", text: "Pessoal, vou checar o player aqui" }));
+  const hd = await rpc(db, "save_attendant", { p: { name: "Hugo HD", phone: "31 95555-4444", team: "helpdesk" } });
+  for (const g of hd.affected_groups) await rpc(db, "admin_rebuild_group", { p_group: g });
+  assert.equal((await db.query(`select author_type from messages where sender_phone like '%55554444'`)).rows[0].author_type, "helpdesk");
+
+  // helpdesk escreve de novo: não responde a espera do cliente
+  const r = await send(zapi({ at: "2026-11-10T12:06:00Z", phone: "5531955554444", text: "Reiniciei o equipamento" }));
+  assert.equal(r.author, "helpdesk");
+  assert.equal(Number((await db.query(`select count(*) n from response_events`)).rows[0].n), 0);
+  await send(zapi({ at: "2026-11-10T12:10:00Z", phone: "5511988887777", text: "Oi! Já está ok?" }));
+  const ev = (await db.query(`select author_type, response_seconds from response_events`)).rows;
+  assert.deepEqual(ev, [{ author_type: "atendente", response_seconds: 600 }]);
+
+  // helpdesk falando sozinho não abre espera
+  await send(zapi({ at: "2026-11-10T15:00:00Z", phone: "5531955554444", text: "Atualização: firmware novo" }));
+  assert.equal((await db.query(`select waiting_since from groups`)).rows[0].waiting_since, null);
+
+  const range = { p_instance: "black", p_from: "2026-11-10T00:00:00Z", p_to: "2026-11-11T00:00:00Z" };
+  const ov = await rpc(db, "dash_overview", range);
+  assert.equal(Number(ov.kpis.customer_msgs), 1);
+  assert.equal(Number(ov.kpis.team_msgs), 1);
+  const team = await rpc(db, "dash_team", range);
+  assert.ok(team.some((t) => t.name === "Ana"));
+  assert.ok(!team.some((t) => t.name === "Hugo HD"));
+  const list = await rpc(db, "list_attendants");
+  assert.equal(list.find((a) => a.name === "Hugo HD").team, "helpdesk");
+});

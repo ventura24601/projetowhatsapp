@@ -168,6 +168,7 @@ tr.muted td { opacity: .55; }
 .chat-day { text-align: center; font-size: 11px; color: var(--muted); margin: 10px 0 4px; font-weight: 800; }
 .bubble { max-width: 78%; padding: 7px 11px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
 .bubble.team { margin-left: auto; background: var(--accbg); border-color: transparent; }
+.bubble.hd { margin: 0 auto; border-style: dashed; opacity: .85; }
 .bubble-h { display: flex; gap: 8px; align-items: baseline; font-size: 12px; }
 .bubble-h .t { margin-left: auto; color: var(--muted); }
 .role { font-size: 10px; text-transform: uppercase; color: var(--acc); font-weight: 900; }

@@ -22,6 +22,8 @@ Regras:
 - "customer_questions": perguntas reais do cliente reescritas de forma curta e genérica (servem para montar um FAQ).
 - "issues": problemas do atendimento (demora, resposta genérica, erro de português, promessa não cumprida). Lista vazia se não houver.
 - "summary": uma frase de até 200 caracteres.
+- Mensagens de "Helpdesk interno" são de um time interno de apoio: não são do cliente nem do time avaliado.
+  Não as avalie em "team_feedback" e não as trate como demanda do cliente.
 Não invente fatos que não estão na conversa.`;
 
 function schema(categories) {
@@ -72,6 +74,7 @@ export function buildTranscript(conv) {
   const lines = conv.messages.map((m) => {
     let who;
     if (m.author === "cliente") who = `Cliente (${m.name || "cliente"})`;
+    else if (m.author === "helpdesk") who = `Helpdesk interno (${m.name || "helpdesk"})`;
     else {
       const key = m.attendant_id || `sup:${m.name}`;
       if (!codes.has(key)) {

@@ -37,6 +37,7 @@ Regras de saída:
 - "closed_by": só quando encerrado ("cliente", "equipe" ou "sem_demanda"); use "nenhum" quando aberto.
 - "reason": uma frase curta (até 160 caracteres) explicando a decisão, citando o que falta ou o que encerrou.
 - "evidence": trecho curto da mensagem que comprova a decisão (até 120 caracteres), ou "" se não houver.
+Mensagens de "Helpdesk interno" são de um time interno de apoio da agência: não são demanda do cliente.
 Não invente fatos que não estão na conversa.`;
 
 const SCHEMA = {

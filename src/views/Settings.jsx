@@ -85,7 +85,7 @@ function Instances({ ctx }) {
   );
 }
 
-const EMPTY = { name: "", phone: "", lid: "", area: "", products: [], active: true };
+const EMPTY = { name: "", phone: "", lid: "", area: "", products: [], active: true, team: "atendimento" };
 
 function Attendants() {
   const list = useData(() => rpc("list_attendants"), []);
@@ -95,19 +95,22 @@ function Attendants() {
     <>
       <p className="note">
         Só os números cadastrados aqui (além do próprio supervisor) contam como “time”. Todo o resto do grupo é tratado
-        como cliente. Ao cadastrar ou alterar alguém, o histórico dos grupos dessa pessoa é recalculado.
+        como cliente. Quem for cadastrado como <b>Helpdesk</b> (time interno) fica neutro: não conta como cliente nem como
+        atendente, não abre espera e não entra no SLA. Ao cadastrar ou alterar alguém, o histórico dos grupos dessa pessoa
+        é recalculado.
       </p>
       {progress && <div className="callout">Recalculando grupos… {progress.done}/{progress.total}</div>}
-      <Card title={`${list.data?.length ?? 0} atendentes`} action={<button className="btn" onClick={() => setEdit(EMPTY)}>+ Novo atendente</button>}>
+      <Card title={`${(list.data || []).filter((a) => a.team !== "helpdesk").length} atendentes · ${(list.data || []).filter((a) => a.team === "helpdesk").length} helpdesk`} action={<button className="btn" onClick={() => setEdit(EMPTY)}>+ Novo atendente</button>}>
         <ErrorBox error={list.error} />
         {list.data?.length === 0 ? <Empty>Nenhum atendente. Cadastre os números do time ou use a aba “Números não cadastrados”.</Empty> : (
           <div className="table-wrap">
             <table className="tbl">
-              <thead><tr><th>Nome</th><th>Telefone</th><th>Área</th><th>Produtos</th><th>Msgs 30d</th><th>Visto</th><th /></tr></thead>
+              <thead><tr><th>Nome</th><th>Time</th><th>Telefone</th><th>Área</th><th>Produtos</th><th>Msgs 30d</th><th>Visto</th><th /></tr></thead>
               <tbody>
                 {(list.data || []).map((a) => (
                   <tr key={a.id} className={a.active ? "" : "muted"}>
                     <td><b>{a.name}</b>{!a.active && <div className="sub">inativo</div>}</td>
+                    <td>{a.team === "helpdesk" ? <Pill cls="p-n">Helpdesk</Pill> : "Atendimento"}</td>
                     <td className="mono">{a.phone}</td>
                     <td>{a.area || "—"}</td>
                     <td>{a.products?.length ? a.products.join(", ") : "—"}</td>
@@ -140,7 +143,7 @@ function Attendants() {
 }
 
 export function AttendantForm({ value, onClose, onSaved }) {
-  const [f, setF] = useState({ ...EMPTY, ...value, lid: value.lid ?? "", area: value.area ?? "", products: value.products ?? [] });
+  const [f, setF] = useState({ ...EMPTY, ...value, lid: value.lid ?? "", area: value.area ?? "", products: value.products ?? [], team: value.team ?? "atendimento" });
   const [err, setErr] = useState(null);
   const [saving, setSaving] = useState(false);
   const instances = useData(() => rpc("list_instances"), []);
@@ -168,13 +171,20 @@ export function AttendantForm({ value, onClose, onSaved }) {
   }
 
   return (
-    <Modal title={f.id ? `Editar · ${f.name}` : "Novo atendente"} onClose={onClose}>
+    <Modal title={f.id ? `Editar · ${f.name}` : "Novo cadastro"} onClose={onClose}>
       <form className="form" onSubmit={save}>
         <ErrorBox error={err} />
         <label>Nome<input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
         <label>WhatsApp (com DDD)
           <input className="input" required placeholder="(11) 98765-4321" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
           <span className="sub">Aceita com ou sem 55 e com ou sem o 9.</span>
+        </label>
+        <label>Time
+          <select className="input" value={f.team} onChange={(e) => setF({ ...f, team: e.target.value })}>
+            <option value="atendimento">Atendimento (conta nas métricas)</option>
+            <option value="helpdesk">Helpdesk (time interno, fora das métricas)</option>
+          </select>
+          {f.team === "helpdesk" && <span className="sub">As mensagens continuam visíveis na conversa, mas não contam como cliente nem como resposta do time.</span>}
         </label>
         <label>Área<input className="input" placeholder="Suporte, CS, Atendimento…" value={f.area} onChange={(e) => setF({ ...f, area: e.target.value })} /></label>
         <fieldset>
