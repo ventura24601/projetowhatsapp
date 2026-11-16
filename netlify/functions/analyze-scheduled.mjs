@@ -1,4 +1,4 @@
-// Envia o lote de análise por IA às 11h e às 16h (horário de Brasília = UTC-3).
+// Envia o lote de análise por IA 1x por dia, às 18h (horário de Brasília = UTC-3), depois do expediente.
 import { submitAnalysisBatch } from "../lib/analyze.mjs";
 import { adminRpc } from "../lib/supabase.mjs";
 
@@ -8,4 +8,4 @@ export default async () => {
   return Response.json(result);
 };
 
-export const config = { schedule: "0 14,19 * * *" };
+export const config = { schedule: "0 21 * * *" };

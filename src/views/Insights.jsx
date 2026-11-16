@@ -41,7 +41,7 @@ export default function Insights({ ctx }) {
       <div className="row between wrap">
         <p className="note">
           A IA lê cada atendimento encerrado (sem mensagens há 1h) e classifica motivo, clima do cliente, se foi resolvido e a
-          qualidade das respostas do time. Os atendimentos são enviados em lote às 11h e às 16h; os resultados aparecem em até 1 hora.
+          qualidade das respostas do time. Os atendimentos são enviados em lote 1x por dia, às 18h; os resultados aparecem em até 1 hora.
           {batch.data && (
             <> Último envio: {fmtDateTime(batch.data.created_at)} ({fmtNum(batch.data.count)} atendimentos
               {batch.data.status === "open" ? ", em análise" : `, ${fmtNum(batch.data.result?.saved ?? 0)} analisados`}).</>

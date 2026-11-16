@@ -1,12 +1,12 @@
-// Relatório para gestores às 11h e às 15h (horário de Brasília = UTC-3), enviado ao n8n.
+// Relatório para gestores 1x por dia, às 9h (horário de Brasília = UTC-3), enviado ao n8n.
+// Sai depois da revisão de casos das 7h, já com os casos atualizados.
 import { sendReport } from "../lib/report.mjs";
 import { adminRpc } from "../lib/supabase.mjs";
 
 export default async () => {
-  const hour = Number(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }));
-  const result = await sendReport(adminRpc, hour < 13 ? "manha" : "tarde");
+  const result = await sendReport(adminRpc, "manha");
   console.log("[report]", JSON.stringify(result));
   return Response.json(result);
 };
 
-export const config = { schedule: "0 14,18 * * *" };
+export const config = { schedule: "0 12 * * *" };

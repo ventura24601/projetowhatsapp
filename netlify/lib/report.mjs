@@ -1,6 +1,6 @@
 // Relatório para gestores, enviado ao webhook do n8n.
-//  11h ("manha"): resumo rápido do dia anterior + o que está aberto e mais urgente agora.
-//  15h ("tarde"): o que entrou desde as 11h e ainda não foi fechado, por urgência.
+//  9h ("manha", 1x por dia): resumo rápido do dia anterior + o que está aberto e mais urgente agora.
+//  15h ("tarde", não é mais agendado): o que entrou desde as 11h e ainda não foi fechado, por urgência.
 const TZ = "America/Sao_Paulo";
 const OFFSET = "-03:00"; // Brasília (sem horário de verão)
 const MAX_ITEMS = 10;
@@ -62,7 +62,7 @@ export async function buildReport(rpc, kind, now = new Date()) {
     const y = new Date(at(today, "12:00:00").getTime() - 864e5);
     from = at(ymd(y), "00:00:00");
     to = at(today, "00:00:00");
-    title = `Relatório de atendimento — 11h — resumo de ${dm(from)}`;
+    title = `Relatório de atendimento — resumo de ${dm(from)}`;
   } else {
     from = at(today, "11:00:00");
     to = now;
