@@ -1,5 +1,5 @@
 // Relatório para gestores, enviado ao webhook do n8n.
-//  9h ("manha", 1x por dia): resumo rápido do dia anterior + o que está aberto e mais urgente agora.
+//  9h ("manha", seg a sex; na segunda cobre sexta a domingo): resumo rápido do dia anterior + o que está aberto e mais urgente agora.
 //  15h ("tarde", não é mais agendado): o que entrou desde as 11h e ainda não foi fechado, por urgência.
 const TZ = "America/Sao_Paulo";
 const OFFSET = "-03:00"; // Brasília (sem horário de verão)
@@ -59,10 +59,14 @@ export async function buildReport(rpc, kind, now = new Date()) {
   let to;
   let title;
   if (kind === "manha") {
-    const y = new Date(at(today, "12:00:00").getTime() - 864e5);
+    // Na segunda-feira o resumo cobre sexta, sábado e domingo (não há envio no fim de semana).
+    const monday = at(today, "12:00:00").getUTCDay() === 1;
+    const y = new Date(at(today, "12:00:00").getTime() - (monday ? 3 : 1) * 864e5);
     from = at(ymd(y), "00:00:00");
     to = at(today, "00:00:00");
-    title = `Relatório de atendimento — resumo de ${dm(from)}`;
+    title = monday
+      ? `Relatório de atendimento — resumo de ${dm(from)} a ${dm(new Date(to.getTime() - 864e5))}`
+      : `Relatório de atendimento — resumo de ${dm(from)}`;
   } else {
     from = at(today, "11:00:00");
     to = now;

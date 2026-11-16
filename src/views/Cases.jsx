@@ -10,7 +10,7 @@ const CLOSED_BY = {
   manual: { label: "manual", cls: "p-a" },
 };
 
-// Casos abertos x encerrados (revisão por IA 1x por dia, às 7h) — card da home.
+// Casos abertos x encerrados (revisão por IA de segunda a sexta, às 7h) — card da home.
 export default function CasesCard({ ctx }) {
   const { data, error, reload } = useData(() => rpc("dash_cases", { p_instance: ctx.inst }), [ctx.inst], { refreshMs: 60000 });
   const [run, setRun] = useState({ busy: false, msg: null });
@@ -55,7 +55,7 @@ export default function CasesCard({ ctx }) {
       hint={
         lr
           ? `IA revisa às 9h, 13h e 17h · última revisão ${fmtDateTime(lr.created_at)}${lr.status === "open" ? " (em andamento)" : lr.result ? ` · ${fmtNum(lr.result.closed ?? 0)} encerrado(s) de ${fmtNum(lr.result.saved ?? 0)}` : ""}`
-          : "IA revisa 1x por dia, às 7h"
+          : "IA revisa de seg a sex, às 7h"
       }
       action={ctx.isAdmin && (
         <button className="btn" onClick={review} disabled={run.busy || lr?.status === "open"}>
