@@ -13,11 +13,13 @@ import Settings from "./views/Settings.jsx";
 import Alerts from "./views/Alerts.jsx";
 import Calibration from "./views/Calibration.jsx";
 import Helpdesk from "./views/Helpdesk.jsx";
+import Tickets from "./views/Tickets.jsx";
 
 const VIEWS = [
   { id: "geral", icon: "📊", label: "Visão geral", C: Overview },
   { id: "pend", icon: "⏳", label: "Aguardando resposta", C: Pending },
   { id: "alerta", icon: "🚨", label: "Alerta", C: Alerts },
+  { id: "chamados", icon: "🛠️", label: "Chamados técnicos", C: Tickets },
   { id: "time", icon: "👥", label: "Equipe", C: Team },
   { id: "calib", icon: "🎯", label: "Calibragem", C: Calibration },
   { id: "helpdesk", icon: "🛟", label: "Helpdesk", C: Helpdesk },
@@ -67,6 +69,7 @@ function Shell() {
   const instances = useData(() => rpc("list_instances"), []);
   const pending = useData(() => rpc("dash_pending", { p_instance: inst || null }), [inst], { refreshMs: 60000 });
   const alerts = useData(() => rpc("dash_alerts", { p_instance: inst || null }), [inst], { refreshMs: 120000 });
+  const tickets = useData(() => rpc("dash_tickets", { p_instance: inst || null }), [inst], { refreshMs: 120000 });
 
   useEffect(() => {
     const onHash = () => {
@@ -95,6 +98,7 @@ function Shell() {
     reloadInstances: instances.reload,
     reloadPending: pending.reload,
     reloadAlerts: alerts.reload,
+    reloadTickets: tickets.reload,
     go: (v) => { setView(v); setNavOpen(false); },
   };
   if (!DEMO && me.data && !me.data.role) return <NoAccess email={me.data.email} />;
@@ -102,6 +106,7 @@ function Shell() {
   const waiting = pending.data?.length ?? 0;
   const late = pending.data?.filter((p) => p.breached).length ?? 0;
   const critical = alerts.data?.counts?.critico ?? 0;
+  const openTickets = tickets.data?.counts?.aberto ?? 0;
 
   return (
     <div className={`app ${navOpen ? "nav-open" : ""}`}>
@@ -115,6 +120,7 @@ function Shell() {
               <span aria-hidden>{v.icon}</span>
               {v.label}
               {v.id === "pend" && waiting > 0 && <span className={`cnt ${late ? "late" : ""}`}>{waiting}</span>}
+              {v.id === "chamados" && openTickets > 0 && <span className="cnt late" title="Chamados abertos">{openTickets}</span>}
               {v.id === "alerta" && critical > 0 && <span className="cnt late" title="Alertas críticos">{critical}</span>}
             </button>
           ))}

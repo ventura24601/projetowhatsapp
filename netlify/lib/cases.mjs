@@ -37,13 +37,20 @@ Regras de saída:
 - "closed_by": só quando encerrado ("cliente", "equipe" ou "sem_demanda"); use "nenhum" quando aberto.
 - "reason": uma frase curta (até 160 caracteres) explicando a decisão, citando o que falta ou o que encerrou.
 - "evidence": trecho curto da mensagem que comprova a decisão (até 120 caracteres), ou "" se não houver.
+- "tech_ticket": chamado técnico para a equipe interna. "needed" = true quando o cliente relata problema técnico ou
+  dúvida técnica ainda não resolvida: Discador, APPCRC, WhatsApp Oficial / API Oficial / ZapIcom, ramal (ramal extra,
+  ramal em inglês, ramal sem chamar), algo "não está funcionando", erro, sistema fora do ar, equipamento com defeito.
+  NÃO abra para assuntos de Facebook / Google / Instagram / anúncios / campanhas (marketing), nem para pedidos comerciais
+  ou financeiros. "product": discador, appcrc, whatsapp_oficial, ramal ou tecnico (outro problema técnico).
+  "summary": uma frase (até 200 caracteres) dizendo o problema para o técnico. Se não precisar, needed=false,
+  product="tecnico" e summary="".
 Mensagens de "Helpdesk interno" são de um time interno de apoio da agência: não são demanda do cliente.
 Não invente fatos que não estão na conversa.`;
 
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["demand", "status", "closed_by", "next_step", "confidence", "reason", "evidence"],
+  required: ["demand", "status", "closed_by", "next_step", "confidence", "reason", "evidence", "tech_ticket"],
   properties: {
     demand: { type: "string", enum: ["pergunta", "pedido", "problema", "aviso", "nenhuma"] },
     status: { type: "string", enum: ["aberto", "encerrado"] },
@@ -52,6 +59,16 @@ const SCHEMA = {
     confidence: { type: "string", enum: ["alta", "media", "baixa"] },
     reason: { type: "string" },
     evidence: { type: "string" },
+    tech_ticket: {
+      type: "object",
+      additionalProperties: false,
+      required: ["needed", "product", "summary"],
+      properties: {
+        needed: { type: "boolean" },
+        product: { type: "string", enum: ["discador", "appcrc", "whatsapp_oficial", "ramal", "tecnico"] },
+        summary: { type: "string" },
+      },
+    },
   },
 };
 

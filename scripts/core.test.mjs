@@ -397,3 +397,53 @@ test("tela helpdesk: pessoas, entradas e últimas mensagens", async () => {
   assert.equal(d.recent[1].prev_name, "Ana");
   assert.equal(d.groups.length, 1);
 });
+
+test("chamados técnicos: detecção, menções no mesmo chamado, filtro de marketing, status e IA", async () => {
+  const { db, send } = await setup();
+  const now = Date.now();
+  const at = (min) => new Date(now - min * 60e3).toISOString();
+  const det = async (t) => (await db.query(`select public.tech_detect($1) p`, [t])).rows[0].p;
+  assert.equal(await det("O discador parou"), "discador");
+  assert.equal(await det("problema no APP CRC"), "appcrc");
+  assert.equal(await det("a API oficial do whats caiu"), "whatsapp_oficial");
+  assert.equal(await det("o ramal está em inglês"), "ramal");
+  assert.equal(await det("Não está funcionando"), "tecnico");
+  assert.equal(await det("A campanha do Facebook não está funcionando"), null);
+  assert.equal(await det("Bom dia, tudo bem?"), null);
+
+  await send(zapi({ at: at(60), text: "Bom dia, o ramal extra está em inglês" }));
+  await send(zapi({ at: at(50), text: "Ainda está com problema" }));
+  await send(zapi({ at: at(40), text: "O anúncio do Google não está funcionando", group: "120363000000000002-group" }));
+  let d = await rpc(db, "dash_tickets", { p_instance: null });
+  assert.equal(d.items.length, 1);
+  assert.equal(d.items[0].product, "ramal");
+  assert.equal(d.items[0].mentions, 2);
+  assert.equal(Number(d.counts.aberto), 1);
+
+  // reprocessar o grupo não duplica
+  await rpc(db, "admin_rebuild_group", { p_group: d.items[0].group_id });
+  d = await rpc(db, "dash_tickets", { p_instance: null });
+  assert.equal(d.items.length, 1);
+  assert.equal(d.items[0].mentions, 2);
+
+  await rpc(db, "ticket_set", { p_id: d.items[0].id, p_status: "andamento" });
+  await rpc(db, "ticket_set", { p_id: d.items[0].id, p_status: "resolvido", p_note: "Trocado idioma" });
+  d = await rpc(db, "dash_tickets", { p_instance: null });
+  assert.equal(d.items[0].status, "resolvido");
+  assert.equal(d.items[0].note, "Trocado idioma");
+
+  // novo problema depois de resolvido abre outro chamado
+  await send(zapi({ at: at(5), text: "Deu erro de novo no discador" }));
+  d = await rpc(db, "dash_tickets", { p_instance: null });
+  assert.equal(d.items.length, 2);
+  assert.equal(d.items[0].status, "aberto");
+
+  // IA aponta chamado num grupo sem palavra-chave
+  await send(zapi({ at: at(30), text: "As chamadas não saem pelo sistema", group: "120363000000000003-group" }));
+  const conv = (await db.query(`select c.id from conversations c join groups g on g.id = c.group_id where g.wa_id = '120363000000000003-group'`)).rows[0].id;
+  const n = await rpc(db, "ai_save_tickets", { p: [{ conversation_id: conv, product: "discador", summary: "Ligações não saem pelo discador" }] });
+  assert.equal(n, 1);
+  d = await rpc(db, "dash_tickets", { p_instance: null });
+  const ia = d.items.find((t) => t.source === "ia");
+  assert.equal(ia.summary, "Ligações não saem pelo discador");
+});

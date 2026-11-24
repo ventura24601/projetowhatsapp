@@ -281,3 +281,9 @@ input[type="color"] { width: 26px; height: 26px; border: 0; padding: 0; backgrou
 .hd-prev { margin: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hd-txt { margin: 0; white-space: pre-wrap; word-break: break-word; }
 .hd-item > .pill { align-self: flex-start; }
+
+/* Chamados técnicos */
+.tk-quote { margin: 0; padding: 6px 10px; border-left: 3px solid var(--line); background: var(--bg); border-radius: 0 6px 6px 0; white-space: pre-wrap; word-break: break-word; }
+.alert.tk-resolvido, .alert.tk-descartado { opacity: .75; }
+.alert.tk-aberto { border-left-color: var(--red); }
+.alert.tk-andamento { border-left-color: var(--amb); }

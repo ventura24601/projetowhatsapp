@@ -170,6 +170,7 @@ export async function collectAnalysisBatches(rpc) {
     let closed = 0;
     const errors = [];
     let chunk = [];
+    const tickets = [];
     const flush = async () => {
       if (!chunk.length) return;
       if (isCal) {
@@ -190,7 +191,11 @@ export async function collectAnalysisBatches(rpc) {
         chunk.push(isCal
           ? parseCalibration(msg, b.rosters?.[r.custom_id] ?? {}, b.id)
           : isCase
-          ? { id: r.custom_id, decision: parseCaseDecision(msg), model: msg.model }
+          ? (() => {
+              const decision = parseCaseDecision(msg);
+              if (decision.tech_ticket?.needed) tickets.push({ conversation_id: r.custom_id, ...decision.tech_ticket });
+              return { id: r.custom_id, decision, model: msg.model };
+            })()
           : { id: r.custom_id, analysis: parseAnalysis(msg, b.rosters?.[r.custom_id] ?? []), model: msg.model });
         if (chunk.length >= 200) await flush();
       } catch (e) {
@@ -199,7 +204,10 @@ export async function collectAnalysisBatches(rpc) {
     }
     await flush();
     const result = { saved, failed: info.request_counts.errored + info.request_counts.expired + info.request_counts.canceled, errors };
-    if (isCase) result.closed = closed;
+    if (isCase) {
+      result.closed = closed;
+      result.tickets = tickets.length ? await rpc("ai_save_tickets", { p: tickets }) : 0;
+    }
     await rpc("ai_batch_close", { p_id: b.id, p_result: result });
     out.push({ batch: b.id, kind: b.kind, status: "ended", ...result });
   }
