@@ -417,6 +417,9 @@ test("chamados técnicos: detecção, menções no mesmo chamado, filtro de mark
   assert.equal(await det("*RELATÓRIO DIÁRIO IA*\nPacientes que falaram com a IA - 0 · CRC com problema"), null);
   assert.equal(await det("O ramal 3020 tá inglês de novo"), "ramal");
   assert.equal(await det("Duplicidade no ZapIcom"), "whatsapp_oficial");
+  assert.equal(await det("Olá bom dia, confirmado caiu 2 leads aqui"), null);
+  assert.equal(await det("Amanhã não consigo, pode ser quarta-feira?"), null);
+  assert.equal(await det("Não consigo acessar o sistema"), "tecnico");
 
   await send(zapi({ at: at(60), text: "Bom dia, o ramal extra está em inglês" }));
   await send(zapi({ at: at(50), text: "Ainda está com problema" }));
