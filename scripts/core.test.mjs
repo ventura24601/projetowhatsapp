@@ -405,11 +405,18 @@ test("chamados técnicos: detecção, menções no mesmo chamado, filtro de mark
   const det = async (t) => (await db.query(`select public.tech_detect($1) p`, [t])).rows[0].p;
   assert.equal(await det("O discador parou"), "discador");
   assert.equal(await det("problema no APP CRC"), "appcrc");
+  assert.equal(await det("o appcrc não abre"), "appcrc");
   assert.equal(await det("a API oficial do whats caiu"), "whatsapp_oficial");
   assert.equal(await det("o ramal está em inglês"), "ramal");
   assert.equal(await det("Não está funcionando"), "tecnico");
   assert.equal(await det("A campanha do Facebook não está funcionando"), null);
   assert.equal(await det("Bom dia, tudo bem?"), null);
+  assert.equal(await det("Estou cadastrando no APPCRC"), null);
+  assert.equal(await det("a nossa CRC ainda está em contato"), null);
+  assert.equal(await det("Sem problemas! Hoje não conseguimos"), null);
+  assert.equal(await det("*RELATÓRIO DIÁRIO IA*\nPacientes que falaram com a IA - 0 · CRC com problema"), null);
+  assert.equal(await det("O ramal 3020 tá inglês de novo"), "ramal");
+  assert.equal(await det("Duplicidade no ZapIcom"), "whatsapp_oficial");
 
   await send(zapi({ at: at(60), text: "Bom dia, o ramal extra está em inglês" }));
   await send(zapi({ at: at(50), text: "Ainda está com problema" }));
