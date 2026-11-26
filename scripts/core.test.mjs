@@ -457,3 +457,34 @@ test("chamados técnicos: detecção, menções no mesmo chamado, filtro de mark
   const ia = d.items.find((t) => t.source === "ia");
   assert.equal(ia.summary, "Ligações não saem pelo discador");
 });
+
+test("mensagens ignoradas: relatório automático fica fora de tudo; mudar a lista recalcula", async () => {
+  const { db, send } = await setup();
+  await rpc(db, "save_attendant", { p: { name: "Ana", phone: "11 98888-7777" } });
+  const rep = "*RELATÓRIO DIÁRIO DO FUNIL DA CLÍNICA DIA 25/11/2026 20:00*\nLeads - 5\nAgendamentos - 3 (60%)";
+  const r = await send(zapi({ at: "2026-11-10T12:00:00Z", text: rep }));
+  assert.equal(r.author, "cliente"); // retorno informativo; o gravado é 'sistema'
+  await send(zapi({ at: "2026-11-10T12:00:30Z", text: "  *ramal 2126 - Clara*\nLigou para 0 leads" }));
+  await send(zapi({ at: "2026-11-10T12:01:00Z", phone: "5511988887777", text: "*INFORMAÇÕES GERAIS*\nLeads deletados - 0" }));
+  const types = (await db.query(`select author_type from messages order by sent_at`)).rows.map((x) => x.author_type);
+  assert.deepEqual(types, ["sistema", "sistema", "sistema"]);
+  assert.equal((await db.query(`select waiting_since from groups`)).rows[0].waiting_since, null);
+  assert.equal(Number((await db.query(`select count(*) n from conversations`)).rows[0].n), 0);
+
+  await send(zapi({ at: "2026-11-10T13:00:00Z", text: "Bom dia, preciso de ajuda" }));
+  await send(zapi({ at: "2026-11-10T13:05:00Z", phone: "5511988887777", text: "Olá!" }));
+  const range = { p_instance: "black", p_from: "2026-11-10T00:00:00Z", p_to: "2026-11-11T00:00:00Z" };
+  const ov = await rpc(db, "dash_overview", range);
+  assert.equal(Number(ov.kpis.customer_msgs), 1);
+  assert.equal(Number(ov.kpis.team_msgs), 1);
+  assert.equal(Number(ov.kpis.responses), 1);
+
+  // tirar "*Ramal " da lista faz essa mensagem voltar a contar como cliente
+  const o = await rpc(db, "ignore_overview");
+  const groups = await rpc(db, "save_ignore_prefixes", { p_prefixes: o.prefixes.filter((x) => x !== "*Ramal ") });
+  assert.equal(groups.length, 1);
+  await rpc(db, "admin_rebuild_group", { p_group: groups[0] });
+  const t2 = (await db.query(`select author_type from messages order by sent_at`)).rows.map((x) => x.author_type);
+  assert.deepEqual(t2, ["sistema", "cliente", "sistema", "cliente", "atendente"]);
+  assert.equal((await rpc(db, "ignore_overview")).samples.length >= 0, true);
+});

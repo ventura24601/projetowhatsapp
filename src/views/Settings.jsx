@@ -8,6 +8,7 @@ const TABS = [
   { value: "time", label: "Atendentes" },
   { value: "novos", label: "Números não cadastrados" },
   { value: "sla", label: "Expediente e SLA" },
+  { value: "ignorar", label: "Mensagens ignoradas" },
   { value: "users", label: "Usuários" },
 ];
 
@@ -30,6 +31,7 @@ export default function Settings({ ctx }) {
       {tab === "time" && <Attendants />}
       {tab === "novos" && <Unknown ctx={ctx} />}
       {tab === "sla" && <SlaSettings />}
+      {tab === "ignorar" && <IgnoredMessages />}
       {tab === "users" && <Users />}
     </div>
   );
@@ -260,6 +262,88 @@ function Unknown({ ctx }) {
           }}
         />
       )}
+    </>
+  );
+}
+
+// Relatórios automáticos (e outras mensagens de sistema) que ficam fora de todas as métricas.
+function IgnoredMessages() {
+  const ov = useData(() => rpc("ignore_overview"), []);
+  const [text, setText] = useState(null);
+  const [test, setTest] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const prefixes = text ?? (ov.data?.prefixes || []).join("\n");
+  const lines = prefixes.split("\n").map((l) => l.trim()).filter(Boolean);
+  const norm = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trimStart();
+  const hit = test.trim() ? lines.find((l) => norm(test).startsWith(norm(l))) : null;
+
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const groups = await rpc("save_ignore_prefixes", { p_prefixes: lines });
+      if (groups?.length) {
+        await rebuild(groups, (done, total) => setProgress({ done, total }));
+        setProgress(null);
+      }
+      setText(null);
+      await ov.reload();
+      setMsg(`Salvo.${groups?.length ? ` ${groups.length} grupo(s) recalculado(s).` : ""}`);
+    } catch (e2) {
+      setMsg(`Erro: ${e2.message}`);
+    }
+    setBusy(false);
+  }
+
+  return (
+    <>
+      <p className="note">
+        Mensagens que <b>começam</b> com um dos textos abaixo são tratadas como relatório automático: continuam aparecendo
+        na conversa, mas ficam fora de <b>todas</b> as métricas — não contam como mensagem do cliente nem do time, não abrem
+        espera, não entram no SLA, nos atendimentos, na análise da IA, nos alertas nem nos chamados. Não diferencia acento
+        nem maiúscula/minúscula. Ao salvar, o histórico dos grupos afetados é recalculado.
+      </p>
+      <ErrorBox error={ov.error} />
+      {ov.data && (
+        <div className="kpis">
+          <div className="kpi"><span className="kpi-l">Mensagens ignoradas (30 dias)</span><strong className="kpi-v">{fmtNum(ov.data.count_30d)}</strong></div>
+          <div className="kpi"><span className="kpi-l">Grupos com relatórios (30 dias)</span><strong className="kpi-v">{fmtNum(ov.data.groups_30d)}</strong></div>
+        </div>
+      )}
+      <Card title="Filtro de mensagens automáticas">
+        <form className="form narrow" onSubmit={save}>
+          {msg && <div className="callout">{msg}</div>}
+          {progress && <div className="callout">Recalculando grupos… {progress.done}/{progress.total}</div>}
+          <label>Ignorar mensagens que começam com (um por linha)
+            <textarea className="input mono" rows="7" value={prefixes} onChange={(e) => setText(e.target.value)} />
+            <span className="sub">Ex.: <code>*RELATÓRIO</code> pega “*RELATÓRIO DIÁRIO DO FUNIL…”, “*RELATÓRIO COMERCIAL*” etc.</span>
+          </label>
+          <label>Testar uma mensagem
+            <textarea className="input" rows="3" placeholder="Cole aqui uma mensagem para ver se ela seria ignorada" value={test} onChange={(e) => setTest(e.target.value)} />
+            {test.trim() && (hit
+              ? <span className="good-t">✔ Seria ignorada (começa com “{hit}”)</span>
+              : <span className="bad-t">✖ Contaria nas métricas</span>)}
+          </label>
+          <div className="form-actions"><button className="btn" disabled={busy}>{busy ? "Salvando…" : "Salvar e recalcular"}</button></div>
+        </form>
+      </Card>
+      <Card title="Últimas mensagens ignoradas">
+        {!ov.data?.samples?.length ? <Empty>Nenhuma mensagem ignorada ainda.</Empty> : (
+          <div className="table-wrap">
+            <table className="tbl">
+              <thead><tr><th>Quando</th><th>Grupo</th><th>Mensagem</th></tr></thead>
+              <tbody>
+                {ov.data.samples.map((s, i) => (
+                  <tr key={i}><td>{ago(s.sent_at)}</td><td>{s.group_name}</td><td className="sub">{s.text}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </>
   );
 }

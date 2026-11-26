@@ -45,14 +45,16 @@ export default function Thread({ conversationId, groupId, title, onClose }) {
           const showDay = day !== lastDay;
           lastDay = day;
           const hd = m.author_type === "helpdesk";
+          const sys = m.author_type === "sistema";
           const team = m.author_type === "atendente" || m.author_type === "supervisor";
           return (
             <div key={m.id}>
               {showDay && <div className="chat-day">{day}</div>}
-              <div className={`bubble ${hd ? "hd" : team ? "team" : "cust"}`}>
+              <div className={`bubble ${hd || sys ? "hd" : team ? "team" : "cust"}`}>
                 <div className="bubble-h">
-                  <b>{hd ? m.attendant_name || m.sender_name : team ? m.attendant_name || (m.author_type === "supervisor" ? "Supervisor" : m.sender_name) : m.sender_name || m.sender_phone}</b>
+                  <b>{sys ? "Relatório automático" : hd ? m.attendant_name || m.sender_name : team ? m.attendant_name || (m.author_type === "supervisor" ? "Supervisor" : m.sender_name) : m.sender_name || m.sender_phone}</b>
                   {hd && <span className="role">helpdesk · fora das métricas</span>}
+                  {sys && <span className="role">ignorada · fora das métricas</span>}
                   {team && <span className="role">{m.author_type === "supervisor" ? "supervisor" : "time"}</span>}
                   <span className="t">{fmtTime(m.sent_at)}</span>
                 </div>
